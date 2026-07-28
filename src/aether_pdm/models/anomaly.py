@@ -14,6 +14,12 @@ from sklearn.ensemble import IsolationForest
 
 from aether_pdm.eval.metrics import compute_anomaly_metrics
 
+META_COLS = {
+    "window_id", "window_start", "window_end", "asset_id", "file_id",
+    "channel", "fault_type", "fault_diameter", "severity", "split",
+    "load_hp", "feature_version", "rpm", "sampling_rate", "waveform",
+}
+
 
 def train_anomaly(
     features_path: Path,
@@ -21,25 +27,37 @@ def train_anomaly(
     n_estimators: int = 200,
     random_state: int = 42,
     mlflow_uri: str | None = None,
+    feature_cols: list[str] | None = None,
+    split: str | None = None,
 ) -> IsolationForest:
     """
     Train IsolationForest anomaly detector on healthy-only data.
 
     Features should already be windowed and computed.
     Filters to rows where fault_type == 'normal'.
+
+    Parameters
+    ----------
+    feature_cols : optional subset of columns to use as features.
+        When None, all non-meta columns are used.
+    split : optional data split filter (e.g. 'train', 'val').
+        When set, only rows with matching ``split`` column are used.
     """
     df = pd.read_parquet(features_path)
+    if split:
+        df = df[df["split"] == split]
     healthy = df[df["fault_type"] == "normal"].copy()
     if healthy.empty:
         raise ValueError("No healthy (normal) samples found in the dataset")
 
-    feature_cols = [c for c in healthy.columns if c not in (
-        "window_id", "window_start", "window_end", "asset_id", "file_id",
-        "channel", "fault_type", "fault_diameter", "severity", "split",
-        "load_hp", "feature_version", "rpm", "sampling_rate", "waveform",
-    )]
-
-    x_train = healthy[feature_cols].values
+    if feature_cols is not None:
+        missing = [c for c in feature_cols if c not in healthy.columns]
+        if missing:
+            raise ValueError(f"Feature columns not found in data: {missing}")
+        x_train = healthy[feature_cols].values
+    else:
+        feature_cols = [c for c in healthy.columns if c not in META_COLS]
+        x_train = healthy[feature_cols].values
 
     model = IsolationForest(
         n_estimators=n_estimators,
