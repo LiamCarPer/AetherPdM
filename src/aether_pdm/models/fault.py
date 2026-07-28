@@ -1,0 +1,126 @@
+"""
+Fault classification model for bearing faults.
+
+Trains a RandomForest on all fault classes (inner_race, outer_race, ball, normal).
+Outputs class prediction with confidence scores.
+"""
+
+from pathlib import Path
+
+import mlflow
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
+
+from aether_pdm.eval.metrics import classification_report_dict
+
+
+FAULT_LABELS = ["normal", "inner_race", "outer_race", "ball"]
+
+
+def train_fault_classifier(
+    features_path: Path,
+    n_estimators: int = 300,
+    max_depth: int = 12,
+    random_state: int = 42,
+    mlflow_uri: str | None = None,
+) -> tuple[RandomForestClassifier, LabelEncoder]:
+    """
+    Train RandomForest fault classifier on all labeled data.
+
+    Features should already be windowed and computed.
+    Uses 'fault_type' column as the target.
+    """
+    df = pd.read_parquet(features_path)
+    df = df[df["fault_type"].isin(FAULT_LABELS)].copy()
+    if df.empty:
+        raise ValueError("No labeled fault samples found")
+
+    # Separate features from metadata
+    meta_cols = {
+        "window_id", "window_start", "window_end", "asset_id", "file_id",
+        "channel", "fault_type", "fault_diameter", "severity", "split",
+        "load_hp", "feature_version", "rpm", "sampling_rate", "waveform",
+    }
+    feature_cols = [c for c in df.columns if c not in meta_cols]
+
+    le = LabelEncoder()
+    y = le.fit_transform(df["fault_type"])
+    X = df[feature_cols].values
+
+    model = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_leaf=4,
+        class_weight="balanced",
+        random_state=random_state,
+        n_jobs=-1,
+    )
+    model.fit(X, y)
+
+    # Log to MLflow
+    mlflow.set_tracking_uri(mlflow_uri or "mlruns")
+    with mlflow.start_run(run_name="fault_train") as run:
+        mlflow.log_params({
+            "model_type": "RandomForest",
+            "n_estimators": n_estimators,
+            "max_depth": max_depth,
+            "random_state": random_state,
+            "n_train_samples": len(X),
+            "classes": str(le.classes_.tolist()),
+        })
+        mlflow.sklearn.log_model(model, "model", registered_model_name="aether-fault-clf")
+        mlflow.log_artifact(str(features_path), artifact_path="data")
+
+        # Log baseline metrics on training data
+        y_pred = model.predict(X)
+        metrics = classification_report_dict(y, y_pred, labels=list(range(len(le.classes_))))
+        mlflow.log_metrics(metrics)
+
+        run_id = run.info.run_id
+        print(f"Fault classifier trained. MLflow run: {run_id}")
+        print(f"  Train samples: {len(X)}, Classes: {list(le.classes_)}")
+        print(f"  Metrics: {metrics}")
+
+    return model, le
+
+
+def predict_fault(
+    model: RandomForestClassifier,
+    label_encoder: LabelEncoder,
+    features: np.ndarray,
+) -> tuple[list[str], list[float]]:
+    """
+    Predict fault classes and confidence scores.
+
+    Returns:
+        classes: predicted class labels
+        confidences: probability scores for predicted class
+    """
+    probs = model.predict_proba(features)
+    pred_indices = model.predict(features)
+    classes = label_encoder.inverse_transform(pred_indices).tolist()
+    confidences = [float(probs[i, pred_indices[i]]) for i in range(len(features))]
+    return classes, confidences
+
+
+def predict_fault_full(
+    model: RandomForestClassifier,
+    label_encoder: LabelEncoder,
+    features: np.ndarray,
+) -> list[dict]:
+    """
+    Predict fault classes with full probability distribution.
+
+    Returns a list of dicts with class -> probability for each sample.
+    """
+    probs = model.predict_proba(features)
+    results = []
+    for i in range(len(features)):
+        probs_dict = {
+            label_encoder.inverse_transform([j])[0]: float(probs[i, j])
+            for j in range(probs.shape[1])
+        }
+        results.append(probs_dict)
+    return results
