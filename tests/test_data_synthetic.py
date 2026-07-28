@@ -1,0 +1,39 @@
+"""Tests for synthetic data generator."""
+
+import numpy as np
+import pandas as pd
+from pathlib import Path
+from aether_pdm.data.synthetic import synthetic_waveform, generate_dataset
+
+
+def test_synthetic_waveform_shape():
+    """Should return an array of the requested length."""
+    w = synthetic_waveform(length=2048, sampling_rate=12000, fault_type="normal", seed=0)
+    assert len(w) == 2048
+    assert w.dtype == float
+
+
+def test_synthetic_waveform_normal():
+    """Normal waveform should have lower RMS than inner_race fault."""
+    rng = np.random.default_rng(0)
+    normal = synthetic_waveform(length=4096, rpm=1772, fault_type="normal", seed=42)
+    faulty = synthetic_waveform(length=4096, rpm=1772, fault_type="inner_race", fault_diameter=0.021, seed=42)
+    assert np.std(faulty) > np.std(normal)
+
+
+def test_synthetic_waveform_seed_reproducibility():
+    """Same seed should produce identical waveform."""
+    a = synthetic_waveform(length=2048, seed=123)
+    b = synthetic_waveform(length=2048, seed=123)
+    np.testing.assert_array_almost_equal(a, b)
+
+
+def test_generate_dataset_structure():
+    """Generated dataset should have expected columns."""
+    result = generate_dataset(Path("data/interim/test_synthetic"), n_normal=3, n_faulty=3, seed=0)
+    df = pd.read_parquet(result)
+    assert len(df) == 6
+    assert "waveform" in df.columns
+    assert "fault_type" in df.columns
+    assert "split" in df.columns
+    assert "severity" in df.columns
