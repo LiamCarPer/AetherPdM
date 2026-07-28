@@ -12,9 +12,6 @@ Usage:
 """
 
 import argparse
-import os
-import shutil
-import tempfile
 import zipfile
 from pathlib import Path
 

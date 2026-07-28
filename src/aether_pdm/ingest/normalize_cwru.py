@@ -10,13 +10,10 @@ Usage:
 """
 
 import argparse
-import re
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pyarrow.parquet as pq
-import pyarrow as pa
 
 try:
     import scipy.io as sio
@@ -171,7 +168,11 @@ def normalize_file(filepath: Path) -> pd.DataFrame:
                     "load_hp": load_hp,
                     "fault_type": fault_type,
                     "fault_diameter": fault_diameter,
-                    "severity": "severe" if fault_diameter >= 0.021 else "moderate" if fault_diameter >= 0.014 else "incipient",
+                    "severity": (
+                        "severe" if fault_diameter >= 0.021
+                        else "moderate" if fault_diameter >= 0.014
+                        else "incipient"
+                    ),
                     "split": split,
                     "waveform": waveform.tolist(),
                 }

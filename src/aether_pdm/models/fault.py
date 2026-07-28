@@ -15,7 +15,6 @@ from sklearn.preprocessing import LabelEncoder
 
 from aether_pdm.eval.metrics import classification_report_dict
 
-
 FAULT_LABELS = ["normal", "inner_race", "outer_race", "ball"]
 
 
@@ -47,7 +46,7 @@ def train_fault_classifier(
 
     le = LabelEncoder()
     y = le.fit_transform(df["fault_type"])
-    X = df[feature_cols].values
+    x = df[feature_cols].values
 
     model = RandomForestClassifier(
         n_estimators=n_estimators,
@@ -57,7 +56,7 @@ def train_fault_classifier(
         random_state=random_state,
         n_jobs=-1,
     )
-    model.fit(X, y)
+    model.fit(x, y)
 
     # Log to MLflow
     mlflow.set_tracking_uri(mlflow_uri or "mlruns")
@@ -68,20 +67,20 @@ def train_fault_classifier(
             "n_estimators": n_estimators,
             "max_depth": max_depth,
             "random_state": random_state,
-            "n_train_samples": len(X),
+            "n_train_samples": len(x),
             "classes": ",".join(classes_list),
         })
         mlflow.sklearn.log_model(model, "model", registered_model_name="aether-fault-clf")
         mlflow.log_artifact(str(features_path), artifact_path="data")
 
         # Log baseline metrics on training data
-        y_pred = model.predict(X)
-        metrics = classification_report_dict(y, y_pred, labels=list(range(len(le.classes_))))
+        y_pred = model.predict(x)
+        metrics = classification_report_dict(y, y_pred, labels=le.classes_.tolist())
         mlflow.log_metrics(metrics)
 
         run_id = run.info.run_id
         print(f"Fault classifier trained. MLflow run: {run_id}")
-        print(f"  Train samples: {len(X)}, Classes: {list(le.classes_)}")
+        print(f"  Train samples: {len(x)}, Classes: {list(le.classes_)}")
         print(f"  Metrics: {metrics}")
 
     return model, le

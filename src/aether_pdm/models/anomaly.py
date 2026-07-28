@@ -39,7 +39,7 @@ def train_anomaly(
         "load_hp", "feature_version", "rpm", "sampling_rate", "waveform",
     )]
 
-    X_train = healthy[feature_cols].values
+    x_train = healthy[feature_cols].values
 
     model = IsolationForest(
         n_estimators=n_estimators,
@@ -47,7 +47,7 @@ def train_anomaly(
         random_state=random_state,
         n_jobs=-1,
     )
-    model.fit(X_train)
+    model.fit(x_train)
 
     # Log to MLflow
     mlflow.set_tracking_uri(mlflow_uri or "mlruns")
@@ -57,21 +57,21 @@ def train_anomaly(
             "n_estimators": n_estimators,
             "contamination": contamination,
             "random_state": random_state,
-            "n_train_samples": len(X_train),
+            "n_train_samples": len(x_train),
         })
         mlflow.sklearn.log_model(model, "model", registered_model_name="aether-anomaly")
         mlflow.log_artifact(str(features_path), artifact_path="data")
 
         # Log baseline metrics on training data
-        scores = model.decision_function(X_train)
+        scores = model.decision_function(x_train)
         preds = np.where(scores < 0, 1, 0)  # negative score = anomaly
-        y_true = np.zeros(len(X_train))  # all healthy
+        y_true = np.zeros(len(x_train))  # all healthy
         metrics = compute_anomaly_metrics(y_true, preds)
         mlflow.log_metrics(metrics)
 
         run_id = run.info.run_id
         print(f"Anomaly model trained. MLflow run: {run_id}")
-        print(f"  Train samples: {len(X_train)}, Contamination target: {contamination:.2f}")
+        print(f"  Train samples: {len(x_train)}, Contamination target: {contamination:.2f}")
         print(f"  Metrics: {metrics}")
 
     return model

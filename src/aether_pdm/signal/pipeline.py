@@ -17,7 +17,6 @@ import pandas as pd
 from aether_pdm.signal.features import compute_all_features
 from aether_pdm.signal.window import sliding_windows
 
-
 FEATURE_VERSION = "v1"
 
 
@@ -80,7 +79,9 @@ def process_dataset(
             continue
 
         # Carry over metadata
-        for col in ["asset_id", "file_id", "channel", "fault_type", "fault_diameter", "severity", "split", "load_hp"]:
+        meta_cols = ["asset_id", "file_id", "channel", "fault_type",
+                      "fault_diameter", "severity", "split", "load_hp"]
+        for col in meta_cols:
             if col in row:
                 windows_df[col] = row[col]
 

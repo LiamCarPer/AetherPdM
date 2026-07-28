@@ -6,13 +6,10 @@ Usage:
     result = engine.score(waveform=np.array(...), sampling_rate=12000, rpm=1772)
 """
 
-from pathlib import Path
 from typing import Any
 
 import mlflow
 import numpy as np
-from sklearn.ensemble import IsolationForest, RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
 
 from aether_pdm.signal.features import compute_all_features
 from aether_pdm.signal.window import sliding_windows
@@ -128,11 +125,11 @@ class InferenceEngine:
             alert_reason = None
 
         # Top features by contribution (absolute value)
-        top_features = sorted(
-            [{"name": k, "contribution": float(abs(v))} for k, v in features.items()],
-            key=lambda x: x["contribution"],
-            reverse=True,
-        )[:5]
+        feat_list: list[dict[str, Any]] = []
+        for k, v in features.items():
+            feat_list.append({"name": k, "contribution": float(abs(v))})
+        feat_list.sort(key=lambda x: x["contribution"], reverse=True)
+        top_features = feat_list[:5]
 
         return {
             "health_score": health_score,

@@ -81,7 +81,10 @@ def bearing_fault_frequencies(
     cos_angle = np.cos(np.deg2rad(contact_angle))
     bpfo = n_balls * fr / 2 * (1 - ball_diameter / pitch_diameter * cos_angle)
     bpfi = n_balls * fr / 2 * (1 + ball_diameter / pitch_diameter * cos_angle)
-    bsf = pitch_diameter / ball_diameter * fr * (1 - (ball_diameter / pitch_diameter * cos_angle) ** 2)
+    bsf = (
+        pitch_diameter / ball_diameter * fr
+        * (1 - (ball_diameter / pitch_diameter * cos_angle) ** 2)
+    )
     ftf = fr / 2 * (1 - ball_diameter / pitch_diameter * cos_angle)
     return {
         "bpfo": float(bpfo),
