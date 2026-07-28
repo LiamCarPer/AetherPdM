@@ -112,6 +112,6 @@ def list_alerts(
 def acknowledge_alert(db: Session, alert_id: int) -> Alert | None:
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if alert:
-        alert.acknowledged = 1
+        alert.acknowledged = 1  # type: ignore[assignment]
         db.flush()
     return alert

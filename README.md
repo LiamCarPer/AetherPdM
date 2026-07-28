@@ -1,5 +1,9 @@
 # AetherPdM — Predictive Maintenance for Rotating Equipment
 
+[![CI](https://github.com/LiamCarPer/AetherPdM/actions/workflows/ci.yml/badge.svg)](https://github.com/LiamCarPer/AetherPdM/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 **B2B condition monitoring + predictive maintenance** for bearings and rotating machinery.
 From vibration signal to fault classification, health score, and operational alerts.
 
@@ -69,11 +73,53 @@ to different machines, loads, or operating conditions.
 | Storage | MinIO (S3-compatible) |
 | Containers | Docker Compose |
 | Observability | Prometheus metrics endpoint |
+| UI | Streamlit ops dashboard (TBD) |
+
+## What's Inside
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **CWRU Normalizer** | `ingest/normalize_cwru.py` | `.mat` → Parquet with anti-leakage file-level split |
+| **Synthetic Generator** | `data/synthetic.py` | Bearing fault waveforms (normal, inner, outer, ball) |
+| **Signal Pipeline** | `signal/pipeline.py` | Window → time-domain → FFT → envelope → feature vectors |
+| **Anomaly Detector** | `models/anomaly.py` | IsolationForest trained on healthy-only data |
+| **Fault Classifier** | `models/fault.py` | RandomForest on 4 classes with LabelEncoder |
+| **Config-Driven Training** | `models/train.py` | YAML-based reproducible training (via `--fault-config`) |
+| **Inference Engine** | `serve/inference.py` | Loads MLflow models, scores raw waveforms |
+| **REST API** | `serve/app.py` | FastAPI: score, alerts, assets, health |
+| **DB Layer** | `db/` | SQLAlchemy ORM + repository for scores/alerts/assets |
+| **CI Pipeline** | `.github/workflows/ci.yml` | Ruff lint → mypy type-check → pytest with coverage |
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Readiness check |
+| `POST` | `/v1/assets/{asset_id}/score` | Score a vibration waveform, persist alert |
+| `GET` | `/v1/alerts` | List alerts (filterable: `asset_id`, `level`, `limit`) |
+| `GET` | `/v1/assets` | List registered assets |
+| `GET` | `/v1/assets/{asset_id}` | Get asset detail by ID |
+
+Example response from `/v1/assets/{id}/score`:
+
+```json
+{
+  "asset_id": "motor-001",
+  "model_versions": {"anomaly": "3", "fault": "3"},
+  "health_score": 0.85,
+  "anomaly_score": 0.12,
+  "fault": {"class": "normal", "confidence": 0.91},
+  "alert": {"level": "healthy", "reason": null},
+  "top_features": [{"name": "rms", "contribution": 0.23}],
+  "score_id": 42
+}
+```
 
 ## Quick Start
 
 ```bash
 # Prerequisites: Python 3.12, uv, Docker Desktop
+# See: https://docs.astral.sh/uv/getting-started/installation/
 
 # 1. Clone and install
 git clone https://github.com/LiamCarPer/AetherPdM.git
@@ -83,12 +129,14 @@ uv sync --group dev
 # 2. Download CWRU dataset
 uv run python -m aether_pdm.ingest.download_cwru
 
-# 3. Start infrastructure
-docker compose -f infra/docker/docker-compose.yml up -d
+# 3. Generate features from raw signals
+uv run python -m aether_pdm.signal.pipeline
 
-# 4. Train models
-uv run python -m aether_pdm.models.train_anomaly
-uv run python -m aether_pdm.models.train_fault
+# 4. Train models (config-driven via YAML)
+uv run python -m aether_pdm.models.train \
+  --features data/interim/features/features_v1.parquet \
+  --anomaly-config configs/train_anomaly.yaml \
+  --fault-config configs/train_fault.yaml
 
 # 5. Run API
 uv run uvicorn aether_pdm.serve.app:app --reload

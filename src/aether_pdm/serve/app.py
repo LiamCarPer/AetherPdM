@@ -194,7 +194,7 @@ async def score_asset(asset_id: str, request: ScoreRequest, db: DbDep):
         fault=FaultInfo(**result["fault"]) if result["fault"] else None,
         alert=AlertInfo(**alert),
         top_features=result["top_features"],
-        score_id=record.id,
+        score_id=int(record.id),
     )
 
 
