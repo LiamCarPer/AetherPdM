@@ -148,6 +148,12 @@ aether-pdm/
 - **RUL**: light severity scoring, not full remaining-useful-life prediction (Fase 2)
 - **Cloud**: not deployed; runs locally via Docker Compose (cloud target: Azure/AWS TBD)
 
+## Development Note
+
+This project was built using AI agents (opencode). All architecture decisions,
+domain modeling (bearing fault frequencies, metrics), testing strategy, and
+code reviews are my own. Every line was reviewed and understood before commit.
+
 ## License
 
 MIT
