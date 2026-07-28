@@ -1,6 +1,5 @@
 """Smoke test for the inference engine with real models."""
 
-import numpy as np
 import pytest
 
 from aether_pdm.data.synthetic import synthetic_waveform

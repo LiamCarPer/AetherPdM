@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from aether_pdm.signal.features import (
     bearing_fault_frequencies,
     compute_all_features,

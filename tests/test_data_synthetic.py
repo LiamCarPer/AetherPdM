@@ -1,9 +1,11 @@
 """Tests for synthetic data generator."""
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from aether_pdm.data.synthetic import synthetic_waveform, generate_dataset
+
+from aether_pdm.data.synthetic import generate_dataset, synthetic_waveform
 
 
 def test_synthetic_waveform_shape():
@@ -15,7 +17,6 @@ def test_synthetic_waveform_shape():
 
 def test_synthetic_waveform_normal():
     """Normal waveform should have lower RMS than inner_race fault."""
-    rng = np.random.default_rng(0)
     normal = synthetic_waveform(length=4096, rpm=1772, fault_type="normal", seed=42)
     faulty = synthetic_waveform(length=4096, rpm=1772, fault_type="inner_race", fault_diameter=0.021, seed=42)
     assert np.std(faulty) > np.std(normal)

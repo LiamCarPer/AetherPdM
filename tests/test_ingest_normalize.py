@@ -1,6 +1,6 @@
 """Tests for CWRU normalizer."""
 
-from aether_pdm.ingest.normalize_cwru import determine_split, LOAD_RPM, TEST_FILES
+from aether_pdm.ingest.normalize_cwru import LOAD_RPM, TEST_FILES, determine_split
 
 
 def test_determine_split():

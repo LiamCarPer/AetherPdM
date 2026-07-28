@@ -3,9 +3,9 @@
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
-from aether_pdm.signal.pipeline import process_waveform, process_dataset
-from aether_pdm.data.synthetic import synthetic_waveform, generate_dataset
+
+from aether_pdm.data.synthetic import generate_dataset, synthetic_waveform
+from aether_pdm.signal.pipeline import process_dataset, process_waveform
 
 
 def test_process_waveform_returns_features():

@@ -3,17 +3,16 @@
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 
+from aether_pdm.data.synthetic import generate_dataset
 from aether_pdm.models.fault import (
-    train_fault_classifier,
+    FAULT_LABELS,
     predict_fault,
     predict_fault_full,
-    FAULT_LABELS,
+    train_fault_classifier,
 )
-from aether_pdm.data.synthetic import generate_dataset
 from aether_pdm.signal.pipeline import process_dataset
 
 

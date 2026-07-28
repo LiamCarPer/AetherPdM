@@ -1,6 +1,7 @@
 """Tests for signal windowing."""
 
 import numpy as np
+
 from aether_pdm.signal.window import sliding_windows
 
 

@@ -3,11 +3,10 @@
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from sklearn.ensemble import IsolationForest
 
-from aether_pdm.models.anomaly import train_anomaly, predict_anomaly
 from aether_pdm.data.synthetic import generate_dataset
+from aether_pdm.models.anomaly import predict_anomaly, train_anomaly
 from aether_pdm.signal.pipeline import process_dataset
 
 

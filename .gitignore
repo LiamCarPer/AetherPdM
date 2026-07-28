@@ -39,3 +39,6 @@ notebooks/.ipynb_checkpoints/
 # Logs
 *.log
 logs/
+
+# Notes (local planning, not part of the product)
+.notes
