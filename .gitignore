@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+.env/
+
+# Data (raw downloads, generated features)
+data/raw/
+data/interim/
+
+# MLflow artifacts
+mlruns/
+mlartifacts/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebooks output
+notebooks/.ipynb_checkpoints/
+
+# Docker
+.env.local
+
+# Logs
+*.log
+logs/

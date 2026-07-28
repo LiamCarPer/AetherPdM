@@ -1,0 +1,65 @@
+# AetherPdM Data Catalog
+# Each dataset entry describes source, license, intended use, and splits.
+
+datasets:
+  cwru:
+    name: "CWRU Bearing Data Center"
+    source: "https://engineering.case.edu/bearingdatacenter/download-data-file"
+    license: "Open — academic use. Attribution to Case Western Reserve University."
+    format: ".mat (MATLAB)"
+    sampling_rate: 12000  # Hz (12k drive-end); also 48k available
+    description: >
+      Standard benchmark for bearing fault classification. Vibration data from
+      accelerometers mounted on motor housing. Faults seeded on drive-end and
+      fan-end bearings: normal, inner race, outer race (various positions), ball.
+      Four load conditions (0–3 hp) with corresponding RPM range 1797–1730.
+    faults:
+      - inner_race
+      - outer_race
+      - ball
+      - normal
+    splits:
+      train: "all loads except 3hp"
+      val: "3hp (domain shift within same source)"
+      test: "held-out files by fault type × severity"
+    use: "MVP training and benchmarks"
+
+  paderborn:
+    name: "Paderborn University Bearing Dataset"
+    source: "https://mb.uni-paderborn.de/kat/forschung/datacenter/bearing-datacenter"
+    license: "Open — academic use. Attribution to Paderborn University."
+    format: ".mat (MATLAB)"
+    sampling_rate: 64000
+    description: >
+      Damages from accelerated lifetime tests (not artificial). Includes both
+      vibration and motor current signals. Multiple load conditions and speeds.
+      More realistic than CWRU but smaller labeled set.
+    faults:
+      - inner_race
+      - outer_race
+      - normal
+    splits:
+      train: "source domain — CWRU"
+      test: "target domain — Paderborn (domain shift evaluation)"
+    use: "Domain shift analysis, production realism"
+
+  synthetic:
+    name: "AetherPdM Synthetic"
+    source: "generated internally"
+    license: "MIT"
+    format: ".parquet"
+    sampling_rate: 12000
+    description: >
+      Controlled synthetic vibration data for MLOps testing. Simulates
+      degradation trajectories, drift, multi-plant topologies, and
+      custom FP/FN rates. Not for academic benchmarking.
+    faults:
+      - inner_race
+      - outer_race
+      - ball
+      - normal
+    splits:
+      train: "healthy-only for anomaly baseline"
+      test: "degradation ramp with known fault injection"
+      drift: "simulated feature drift after time T"
+    use: "MLOps (drift, retrain, multi-tenant), edge testing"

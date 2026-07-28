@@ -1,0 +1,31 @@
+# Anomaly detection training config
+model:
+  name: "aether-anomaly"
+  algorithm: "IsolationForest"
+  params:
+    n_estimators: 200
+    contamination: 0.05
+    random_state: 42
+
+features:
+  - rms
+  - peak
+  - crest
+  - kurtosis
+  - skew
+  - band_power_low
+  - band_power_high
+
+data:
+  source: "cwru"
+  train_labels: ["normal"]
+  window_samples: 2048
+  overlap: 0.5
+  split: "train"
+
+eval:
+  split_method: "by_file"  # prevents leakage across windows from same recording
+  metrics:
+    - false_alarm_rate
+    - f1
+    - precision_at_k

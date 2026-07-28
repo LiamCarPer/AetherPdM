@@ -1,0 +1,38 @@
+# AetherPdM asset registry config
+# Copy to assets.yaml and fill with your asset topology.
+
+org: "acme-corp"
+plants:
+  - name: "plant-frankfurt"
+    assets:
+      - id: "motor-001"
+        type: "motor"
+        bearings:
+          - position: "drive_end"
+            model: "SKF-6205"
+          - position: "fan_end"
+            model: "SKF-6203"
+        rpm_nominal: 1772
+        load_nominal: 1.0
+        sampling_rate: 12000
+        anomaly_threshold: 0.85
+      - id: "motor-002"
+        type: "motor"
+        bearings:
+          - position: "drive_end"
+            model: "SKF-6205"
+        rpm_nominal: 1730
+        load_nominal: 3.0
+        sampling_rate: 12000
+        anomaly_threshold: 0.90
+  - name: "plant-chicago"
+    assets:
+      - id: "pump-101"
+        type: "pump"
+        bearings:
+          - position: "drive_end"
+            model: "SKF-6205"
+        rpm_nominal: 1797
+        load_nominal: 0.0
+        sampling_rate: 12000
+        anomaly_threshold: 0.80

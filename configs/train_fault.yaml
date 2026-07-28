@@ -1,0 +1,38 @@
+# Fault classification training config
+model:
+  name: "aether-fault-clf"
+  algorithm: "RandomForest"
+  params:
+    n_estimators: 300
+    max_depth: 12
+    min_samples_leaf: 4
+    class_weight: "balanced"
+    random_state: 42
+
+features:
+  - rms
+  - peak
+  - crest
+  - kurtosis
+  - skew
+  - bpfo_amp
+  - bpfi_amp
+  - bsf_amp
+  - fft_peak_1
+  - fft_peak_2
+  - fft_peak_3
+
+data:
+  source: "cwru"
+  classes: ["normal", "inner_race", "outer_race", "ball"]
+  window_samples: 2048
+  overlap: 0.5
+  split: "train"
+
+eval:
+  split_method: "by_file"
+  metrics:
+    - f1_macro
+    - balanced_accuracy
+    - confusion_matrix
+    - false_positive_rate_per_class
