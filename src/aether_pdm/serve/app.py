@@ -10,14 +10,28 @@ Endpoints:
 from datetime import datetime, timezone
 from typing import Any
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+
+from aether_pdm.serve.inference import InferenceEngine
 
 app = FastAPI(
     title="AetherPdM API",
     version="0.1.0",
     description="Predictive maintenance scoring API for rotating equipment",
 )
+
+# --- Inference engine (lazy-loaded) ---
+
+_engine: InferenceEngine | None = None
+
+
+def get_engine() -> InferenceEngine:
+    global _engine
+    if _engine is None:
+        _engine = InferenceEngine()
+    return _engine
 
 
 # --- Schemas ---
@@ -81,27 +95,28 @@ async def health():
 
 @app.post("/v1/assets/{asset_id}/score", response_model=ScoreResponse)
 async def score_asset(asset_id: str, request: ScoreRequest):
-    # Placeholder: return a mock score with health status
     n = len(request.waveform)
     if n == 0:
         raise HTTPException(status_code=400, detail="Empty waveform")
 
-    health_val = 0.92
-    anomaly_val = 0.12
-    level = "healthy"
-    reason = None
-
-    alert = AlertInfo(level=level, reason=reason)
-    fault = FaultInfo(class_name="normal", confidence=0.95)
+    try:
+        engine = get_engine()
+        result = engine.score(
+            waveform=np.array(request.waveform, dtype=float),
+            sampling_rate=request.sampling_rate,
+            rpm=request.rpm,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
     return ScoreResponse(
         asset_id=asset_id,
-        model_versions={"anomaly": "1", "fault": "1"},
-        health_score=health_val,
-        anomaly_score=anomaly_val,
-        fault=fault,
-        alert=alert,
-        top_features=[{"name": "rms", "contribution": 0.15}],
+        model_versions=result["model_versions"],
+        health_score=result["health_score"],
+        anomaly_score=result["anomaly_score"],
+        fault=FaultInfo(**result["fault"]) if result["fault"] else None,
+        alert=AlertInfo(**result["alert"]),
+        top_features=result["top_features"],
     )
 
 

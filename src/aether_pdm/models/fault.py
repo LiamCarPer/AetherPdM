@@ -62,13 +62,14 @@ def train_fault_classifier(
     # Log to MLflow
     mlflow.set_tracking_uri(mlflow_uri or "mlruns")
     with mlflow.start_run(run_name="fault_train") as run:
+        classes_list = le.classes_.tolist()
         mlflow.log_params({
             "model_type": "RandomForest",
             "n_estimators": n_estimators,
             "max_depth": max_depth,
             "random_state": random_state,
             "n_train_samples": len(X),
-            "classes": str(le.classes_.tolist()),
+            "classes": ",".join(classes_list),
         })
         mlflow.sklearn.log_model(model, "model", registered_model_name="aether-fault-clf")
         mlflow.log_artifact(str(features_path), artifact_path="data")
