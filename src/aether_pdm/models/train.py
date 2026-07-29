@@ -46,6 +46,10 @@ def main() -> None:
         "--fault-config", type=Path, default=None,
         help="Fault training config YAML (configs/train_fault.yaml)",
     )
+    parser.add_argument(
+        "--calibrate", action="store_true", default=False,
+        help="Run threshold calibration and probability scaling on val split after training",
+    )
     # Legacy CLI args — used when no config file is provided
     parser.add_argument("--anomaly-contamination", type=float, default=0.05)
     parser.add_argument("--fault-estimators", type=int, default=300)
@@ -73,7 +77,7 @@ def main() -> None:
         anomaly_kwargs["contamination"] = args.anomaly_contamination
 
     print("=== Training Anomaly Detector ===")
-    train_anomaly(**anomaly_kwargs)
+    anomaly_model = train_anomaly(**anomaly_kwargs)
 
     # --- Fault ---
     fault_kwargs: dict = {"features_path": args.features, "mlflow_uri": args.mlflow_uri}
@@ -97,7 +101,31 @@ def main() -> None:
         fault_kwargs["n_estimators"] = args.fault_estimators
 
     print("\n=== Training Fault Classifier ===")
-    train_fault_classifier(**fault_kwargs)
+    fault_model, fault_le = train_fault_classifier(**fault_kwargs)
+
+    # --- Calibration (optional) ---
+    if args.calibrate:
+        # Lazy imports to avoid potential circular-dependency issues
+        from aether_pdm.models.calibrate import calibrate_anomaly_model, calibrate_fault_model
+
+        print("\n=== Calibrating Anomaly Model ===")
+        calibrate_anomaly_model(
+            anomaly_model,
+            features_path=args.features,
+            mlflow_uri=args.mlflow_uri,
+            target_recall=0.90,
+            max_far=0.10,
+            split="val",
+        )
+
+        print("\n=== Calibrating Fault Model ===")
+        calibrate_fault_model(
+            fault_model,
+            fault_le,
+            features_path=args.features,
+            mlflow_uri=args.mlflow_uri,
+            split="val",
+        )
 
     print("\nDone. Models registered in MLflow.")
     print(f"  Tracking URI: {mlflow.get_tracking_uri()}")
