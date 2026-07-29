@@ -8,6 +8,7 @@ Endpoints:
   GET  /health                      — Health check
 """
 
+import os
 from collections.abc import Generator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -55,7 +56,8 @@ _engine: InferenceEngine | None = None
 def get_engine() -> InferenceEngine:
     global _engine
     if _engine is None:
-        _engine = InferenceEngine()
+        mlflow_uri = os.environ.get("AETHER_MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+        _engine = InferenceEngine(mlflow_uri=mlflow_uri)
     return _engine
 
 

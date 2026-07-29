@@ -61,6 +61,8 @@ services:
       dockerfile: infra/docker/Dockerfile.api
     ports:
       - "8000:8000"
+    volumes:
+      - data:/app/data
     environment:
       AETHER_DB_URL: postgresql://aether:aether-dev@postgres:5432/aether_pdm
       AETHER_MLFLOW_TRACKING_URI: http://mlflow:5000
@@ -73,6 +75,24 @@ services:
       mlflow:
         condition: service_started
 
+  train:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.train
+    environment:
+      AETHER_MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      mlflow:
+        condition: service_started
+    command: >
+      --features /app/data/interim/features/features_v1.parquet
+      --anomaly-config configs/train_anomaly.yaml
+      --fault-config configs/train_fault.yaml
+      --calibrate
+    profiles:
+      - train
+
 volumes:
   pgdata:
   miniodata:
+  data:

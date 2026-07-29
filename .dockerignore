@@ -1,0 +1,14 @@
+.git/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+data/
+mlruns/
+mlflow.db
+*.egg-info/
+.python-version
+.notes/
+*.log

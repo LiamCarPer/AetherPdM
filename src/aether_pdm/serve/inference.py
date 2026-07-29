@@ -6,6 +6,7 @@ Usage:
     result = engine.score(waveform=np.array(...), sampling_rate=12000, rpm=1772)
 """
 
+import logging
 from typing import Any
 
 import mlflow
@@ -37,10 +38,20 @@ class InferenceEngine:
         fault_stage: str = "production",
     ):
         mlflow.set_tracking_uri(mlflow_uri)
-        self.client = mlflow.tracking.MlflowClient()
+        self.mlflow_uri = mlflow_uri
+        try:
+            self.client = mlflow.tracking.MlflowClient()
+            self._load_models(anomaly_stage, fault_stage)
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning("Failed to load models from MLflow (%s): %s", mlflow_uri, e)
+            self.anomaly_model = None
+            self.fault_model = None
+            self.model_available = False
+        else:
+            self.model_available = True
         self.window_size = window_size
         self.overlap = overlap
-        self._load_models(anomaly_stage, fault_stage)
 
     def _load_models(self, anomaly_stage: str, fault_stage: str) -> None:
         """Load models from MLflow model registry."""
@@ -80,6 +91,11 @@ class InferenceEngine:
 
         Returns a dict matching the ScoreResponse schema.
         """
+        if not self.model_available:
+            raise RuntimeError("Models not loaded. Train models first or check MLflow connection.")
+        assert self.anomaly_model is not None
+        assert self.fault_model is not None
+
         windows, _ = sliding_windows(waveform, self.window_size, self.overlap)
         if windows.shape[0] == 0:
             return {
