@@ -19,6 +19,7 @@ data/interim/
 # MLflow artifacts
 mlruns/
 mlartifacts/
+mlflow.db
 
 # IDE
 .vscode/
