@@ -59,6 +59,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile.api
+      target: api
     ports:
       - "8000:8000"
     volumes:
@@ -73,6 +74,19 @@ services:
       postgres:
         condition: service_healthy
       mlflow:
+        condition: service_started
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+      target: web
+    ports:
+      - "8501:8501"
+    environment:
+      AETHER_API_URL: http://api:8000
+    depends_on:
+      api:
         condition: service_started
 
   train:

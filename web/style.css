@@ -1,0 +1,44 @@
+/* Custom Industrial Dark Mode Styling for AetherPdM Dashboard */
+
+div[data-testid="stMetricValue"] {
+    font-size: 1.8rem !important;
+    font-weight: 700 !important;
+}
+
+.kpi-card {
+    background-color: #1E293B;
+    border-radius: 10px;
+    padding: 1.25rem;
+    border: 1px solid #334155;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.badge-healthy {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-warning {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-critical {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}

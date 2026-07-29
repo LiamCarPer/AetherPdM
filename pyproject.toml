@@ -43,6 +43,7 @@ prefect = [
 ]
 web = [
     "streamlit>=1.40",
+    "plotly>=5.24",
 ]
 
 [build-system]
