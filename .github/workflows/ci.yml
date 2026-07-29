@@ -27,5 +27,8 @@ jobs:
       - name: Type check with mypy
         run: uv run mypy src/ --config-file pyproject.toml
 
-      - name: Run tests
-        run: uv run pytest tests/ -v --cov=src/aether_pdm --cov-report=term-missing
+      - name: Run fast tests
+        run: uv run pytest tests/ -v -m "not slow" --cov=src/aether_pdm --cov-report=term-missing
+
+      - name: Run smoke test
+        run: uv run pytest tests/test_training_smoke.py -v --cov=src/aether_pdm --cov-append --cov-report=term
