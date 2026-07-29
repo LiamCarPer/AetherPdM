@@ -1,0 +1,40 @@
+{
+  "asset_id": "motor-001",
+  "model_versions": {
+    "anomaly": 1,
+    "fault": 1
+  },
+  "health_score": 0.4547,
+  "anomaly_score": 0.5453,
+  "fault": {
+    "class": "inner_race",
+    "confidence": 0.506516317016317
+  },
+  "alert": {
+    "level": "critical",
+    "reason": "detected_inner_race_fault"
+  },
+  "top_features": [
+    {
+      "name": "envelope_energy",
+      "contribution": 1867099.8664482858
+    },
+    {
+      "name": "band_power_0_500",
+      "contribution": 481864.78471815947
+    },
+    {
+      "name": "band_power_500_1000",
+      "contribution": 13535.666998178503
+    },
+    {
+      "name": "band_power_1000_2000",
+      "contribution": 8243.427734961373
+    },
+    {
+      "name": "band_power_2000_4000",
+      "contribution": 3549.5753213879825
+    }
+  ],
+  "score_id": null
+}
