@@ -239,7 +239,7 @@ def _load_candidate_model(name: str, client: Any) -> tuple[Any, int]:
 
     latest = client.search_model_versions(
         f"name='{name}'",
-        order_by=["version DESC"],
+        order_by=["version_number DESC"],
         max_results=1,
     )
     if not latest:
@@ -255,7 +255,9 @@ def _load_candidate_model(name: str, client: Any) -> tuple[Any, int]:
 
 def _load_fault_label_encoder(client: Any, model_name: str, version: int) -> LabelEncoder:
     """Rebuild the fault LabelEncoder from the 'classes' param logged at training."""
-    versions = client.search_model_versions(f"name='{model_name}' and version={version}")
+    versions = client.search_model_versions(
+        f"name='{model_name}' and version_number={version}"
+    )
     if not versions:
         raise ValueError(f"Cannot find version {version} of '{model_name}'.")
     run = client.get_run(versions[0].run_id)

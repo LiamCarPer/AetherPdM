@@ -26,17 +26,20 @@ datasets:
 
   paderborn:
     name: "Paderborn University Bearing Dataset"
-    source: "https://mb.uni-paderborn.de/kat/forschung/datacenter/bearing-datacenter"
+    source: "https://groups.uni-paderborn.de/kat/BearingDataCenter/"
     license: "Open — academic use. Attribution to Paderborn University."
-    format: ".mat (MATLAB)"
+    format: ".rar archives containing .mat (MATLAB)"
     sampling_rate: 64000
     description: >
       Damages from accelerated lifetime tests (not artificial). Includes both
       vibration and motor current signals. Multiple load conditions and speeds.
-      More realistic than CWRU but smaller labeled set.
+      More realistic than CWRU but smaller labeled set. Distributed as .rar
+      archives (150-180 MB each); the downloader extracts the contained .mat
+      files before normalization.
     faults:
       - inner_race
       - outer_race
+      - ball
       - normal
     splits:
       train: "source domain — CWRU"

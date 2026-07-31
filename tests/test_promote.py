@@ -453,6 +453,32 @@ def test_load_candidate_model_falls_back_to_latest(monkeypatch):
     assert model == "loaded:latest-source"
 
 
+def test_load_candidate_model_uses_version_number_order(monkeypatch):
+    """The latest-version query must use 'version_number DESC' (MLflow >= 2.9 sqlite)."""
+    import aether_pdm.ops.promote as promote_mod
+
+    captured: list[list[str] | None] = []
+
+    class FakeClient:
+        def get_latest_versions(self, name, stages=None):
+            return []
+
+        def search_model_versions(self, query, order_by=None, max_results=None):
+            captured.append(order_by)
+            return [SimpleNamespace(version=4, source="latest-source")]
+
+    monkeypatch.setattr(
+        promote_mod.mlflow,
+        "sklearn",
+        SimpleNamespace(load_model=lambda source: f"loaded:{source}"),
+    )
+
+    model, version = promote_mod._load_candidate_model("aether-fault-clf", FakeClient())
+
+    assert version == 4
+    assert captured == [["version_number DESC"]]
+
+
 def test_load_candidate_model_falls_back_when_registry_error(monkeypatch):
     """Should treat a missing registry as no Staging and fall back to latest."""
     from mlflow.exceptions import MlflowException
