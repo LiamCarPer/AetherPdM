@@ -15,6 +15,8 @@ venv/
 # Data (raw downloads, generated features)
 data/raw/
 data/interim/
+data/aether_pdm.db
+*.db
 
 # MLflow artifacts
 mlruns/
@@ -40,6 +42,11 @@ notebooks/.ipynb_checkpoints/
 # Logs
 *.log
 logs/
+
+# Coverage
+.coverage
+htmlcov/
+.coverage.*
 
 # Notes (local planning, not part of the product)
 .notes

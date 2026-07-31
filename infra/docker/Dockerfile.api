@@ -28,7 +28,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 # (it communicates with the API via HTTP); it's present for consistency.
 FROM builder AS web-builder
 COPY web/ web/
-RUN uv sync --frozen --no-dev --group web
+RUN uv sync --frozen --no-dev --extra web
 
 # --- Web runtime stage ---
 FROM python:3.12-slim AS web

@@ -19,13 +19,13 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --extra dev --extra web
 
       - name: Lint with Ruff
-        run: uv run ruff check src/
+        run: uv run ruff check src/ web/
 
       - name: Type check with mypy
-        run: uv run mypy src/ --config-file pyproject.toml
+        run: uv run mypy src/ web/ --config-file pyproject.toml
 
       - name: Run fast tests
         run: uv run pytest tests/ -v -m "not slow" --cov=src/aether_pdm --cov-report=term-missing
