@@ -5,6 +5,11 @@ Evaluates a candidate model (staging stage, or latest if no staging exists)
 against validation data. Promotes to 'production' only if metrics pass
 the configured thresholds (e.g., FAR <= max_far, detection_rate >= min_recall).
 Logs the decision and metrics to MLflow.
+
+The decision itself is delegated to the GatedOps gate engine: AetherPdM
+releases pass through the same contract that promotes GatedOps' reference
+models, and every promotion is recorded as a GatedOps lineage manifest on the
+model version.
 """
 
 from pathlib import Path
@@ -13,6 +18,11 @@ from typing import Any
 import mlflow
 import numpy as np
 import pandas as pd
+from gatedops.gate.engine import evaluate_gate
+from gatedops.gate.rules import GateConfig, ThresholdRule
+from gatedops.manifest.builder import build_manifest
+from gatedops.manifest.hashing import sha256_file
+from gatedops.registry.mlflow_ import MlflowRegistry
 from mlflow.exceptions import MlflowException
 from sklearn.preprocessing import LabelEncoder
 
@@ -34,6 +44,46 @@ def _numeric_metrics(metrics: dict[str, Any]) -> dict[str, float]:
         key: float(value)
         for key, value in metrics.items()
         if isinstance(value, (int, float)) and not isinstance(value, bool)
+    }
+
+
+def anomaly_gate(max_far: float = 0.10, min_recall: float = 0.80) -> GateConfig:
+    """The anomaly promotion gate, expressed as a GatedOps ``GateConfig``."""
+    return GateConfig(
+        thresholds=[
+            ThresholdRule(metric="detection_rate", op=">=", value=min_recall),
+            ThresholdRule(metric="false_alarm_rate", op="<=", value=max_far),
+        ]
+    )
+
+
+def fault_gate(
+    min_f1_macro: float = 0.90,
+    min_balanced_accuracy: float = 0.90,
+) -> GateConfig:
+    """The fault classifier promotion gate, as a GatedOps ``GateConfig``."""
+    return GateConfig(
+        thresholds=[
+            ThresholdRule(metric="f1_macro", op=">=", value=min_f1_macro),
+            ThresholdRule(
+                metric="balanced_accuracy", op=">=", value=min_balanced_accuracy
+            ),
+        ]
+    )
+
+
+def load_promote_gates(path: str | Path = "configs/promote.yaml") -> dict[str, GateConfig]:
+    """Load the canonical promotion gates from ``configs/promote.yaml``."""
+    import yaml
+
+    with Path(path).open(encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+    return {
+        name: GateConfig(
+            thresholds=[ThresholdRule(**threshold) for threshold in spec["thresholds"]]
+        )
+        for name, spec in raw.items()
+        if isinstance(spec, dict) and "thresholds" in spec
     }
 
 
@@ -215,6 +265,40 @@ def evaluate_fault_candidate(
     }
 
 
+def _attach_manifest(
+    client: Any,
+    model_name: str,
+    model_version: int,
+    metrics: dict[str, Any],
+    gate: Any,
+    features_path: Path,
+) -> Any:
+    """Attach a GatedOps lineage manifest to a model version.
+
+    The manifest uses the same schema GatedOps emits for its reference models,
+    so every AetherPdM release carries the identical lineage contract. It
+    records the evaluated metrics, the gate verdict, the artifact hash of the
+    served model bytes, and a hash of the evaluation features.
+    """
+    version = client.get_model_version(model_name, str(model_version))
+    registry = MlflowRegistry(tracking_uri=mlflow.get_tracking_uri())
+    artifact = registry.version_artifact(model_name, str(model_version))
+    manifest = build_manifest(
+        model_name=model_name,
+        model_version=str(model_version),
+        artifact=artifact,
+        run_id=version.run_id,
+        data_hash=sha256_file(Path(features_path)),
+        metrics=_numeric_metrics(metrics),
+        gate=gate,
+        promote_stage="Production" if gate.status == "PASS" else "None",
+    )
+    client.set_model_version_tag(
+        model_name, str(model_version), "gatedops.manifest", manifest.model_dump_json()
+    )
+    return manifest
+
+
 def _load_candidate_model(name: str, client: Any) -> tuple[Any, int]:
     """
     Find candidate version: prefer 'staging' stage, else latest any-stage.
@@ -276,16 +360,22 @@ def promote_anomaly(
     max_far: float = 0.10,
     min_recall: float = 0.80,
     model_name: str = "aether-anomaly",
+    gate: GateConfig | None = None,
 ) -> dict[str, Any]:
     """
     Load latest candidate (staging, else latest any-stage), evaluate on val,
-    promote to production if detection_rate >= min_recall AND far <= max_far.
+    and promote to production if the GatedOps gate passes.
+
+    The decision is made by ``gatedops.gate.engine.evaluate_gate`` against the
+    anomaly thresholds (detection_rate >= min_recall, false_alarm_rate
+    <= max_far), and the promotion is recorded as a GatedOps lineage manifest.
 
     Returns dict:
     - candidate_version
     - decision: "promoted" | "rejected"
     - reason
     - metrics (from evaluate_anomaly_candidate)
+    - gate (GatedOps GateReport)
 
     Raises
     ------
@@ -300,7 +390,12 @@ def promote_anomaly(
 
     recall = float(metrics["detection_rate"])
     far = float(metrics["false_alarm_rate"])
-    decision = "promoted" if (recall >= min_recall and far <= max_far) else "rejected"
+    report = evaluate_gate(
+        gate or anomaly_gate(max_far, min_recall),
+        {"detection_rate": recall, "false_alarm_rate": far},
+        model_name=model_name,
+    )
+    decision = "promoted" if report.status == "PASS" else "rejected"
     reason = _build_anomaly_reason(recall, min_recall, far, max_far)
 
     if decision == "promoted":
@@ -310,11 +405,14 @@ def promote_anomaly(
             stage="Production",
         )
 
+    _attach_manifest(client, model_name, candidate_version, metrics, report, features_path)
+
     with mlflow.start_run(run_name="promote_anomaly"):
         mlflow.log_params({
             "candidate_version": str(candidate_version),
             "decision": decision,
             "reason": reason,
+            "gate_status": report.status,
         })
         mlflow.log_metrics(_numeric_metrics(metrics))
 
@@ -323,6 +421,7 @@ def promote_anomaly(
         "decision": decision,
         "reason": reason,
         "metrics": metrics,
+        "gate": report,
     }
 
 
@@ -332,16 +431,18 @@ def promote_fault(
     min_f1_macro: float = 0.90,
     min_balanced_accuracy: float = 0.90,
     model_name: str = "aether-fault-clf",
+    gate: GateConfig | None = None,
 ) -> dict[str, Any]:
     """
-    Load latest candidate, evaluate on val, promote if f1_macro >= min_f1_macro
-    AND balanced_accuracy >= min_balanced_accuracy.
+    Load latest candidate, evaluate on val, and promote if the GatedOps gate
+    passes (f1_macro >= min_f1_macro, balanced_accuracy >= min_balanced_accuracy).
 
     Returns dict:
     - candidate_version
     - decision: "promoted" | "rejected"
     - reason
     - metrics (from evaluate_fault_candidate)
+    - gate (GatedOps GateReport)
 
     Raises
     ------
@@ -357,11 +458,12 @@ def promote_fault(
 
     f1_macro = float(metrics["f1_macro"])
     balanced_accuracy = float(metrics["balanced_accuracy"])
-    decision = (
-        "promoted"
-        if f1_macro >= min_f1_macro and balanced_accuracy >= min_balanced_accuracy
-        else "rejected"
+    report = evaluate_gate(
+        gate or fault_gate(min_f1_macro, min_balanced_accuracy),
+        {"f1_macro": f1_macro, "balanced_accuracy": balanced_accuracy},
+        model_name=model_name,
     )
+    decision = "promoted" if report.status == "PASS" else "rejected"
     reason = _build_fault_reason(
         f1_macro, min_f1_macro, balanced_accuracy, min_balanced_accuracy
     )
@@ -373,11 +475,14 @@ def promote_fault(
             stage="Production",
         )
 
+    _attach_manifest(client, model_name, candidate_version, metrics, report, features_path)
+
     with mlflow.start_run(run_name="promote_fault"):
         mlflow.log_params({
             "candidate_version": str(candidate_version),
             "decision": decision,
             "reason": reason,
+            "gate_status": report.status,
         })
         mlflow.log_metrics(_numeric_metrics(metrics))
 
@@ -386,4 +491,5 @@ def promote_fault(
         "decision": decision,
         "reason": reason,
         "metrics": metrics,
+        "gate": report,
     }

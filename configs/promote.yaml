@@ -1,0 +1,25 @@
+# Canonical promotion gates for AetherPdM models.
+#
+# These gates are evaluated by the GatedOps gate engine
+# (gatedops.gate.engine.evaluate_gate) and match the defaults of
+# promote_anomaly / promote_fault. Load them with
+# aether_pdm.ops.promote.load_promote_gates.
+anomaly:
+  model_name: aether-anomaly
+  thresholds:
+    - metric: detection_rate
+      op: ">="
+      value: 0.80
+    - metric: false_alarm_rate
+      op: "<="
+      value: 0.10
+
+fault:
+  model_name: aether-fault-clf
+  thresholds:
+    - metric: f1_macro
+      op: ">="
+      value: 0.90
+    - metric: balanced_accuracy
+      op: ">="
+      value: 0.90
