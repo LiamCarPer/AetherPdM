@@ -14,6 +14,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "gatedops" },
     { name = "h5py" },
     { name = "httpx" },
     { name = "mlflow" },
@@ -53,6 +54,7 @@ web = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "gatedops", git = "https://github.com/LiamCarPer/GatedOps.git?rev=v0.2.0" },
     { name = "h5py", specifier = ">=3.12" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "ipython", marker = "extra == 'dev'", specifier = ">=8.30" },
@@ -1162,6 +1164,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/10/a1/ae4e3e5003468d6391d2c77b6fa1cd73bd5d13511d81c642d7b28ac90ed4/fsspec-2026.6.0.tar.gz", hash = "sha256:f5bac145310fe30e16e1471bd6840b2d990d609e872251d7e674241822abf01a", size = 313646, upload-time = "2026-06-16T01:57:28.105Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/22/4222d7ddf3da30f363edaa98e329c2bce6c65497c9cb2810931c8b2c0fbc/fsspec-2026.6.0-py3-none-any.whl", hash = "sha256:02e0b71817df9b2169dc30a16832045764def1191b43dcff5bb85bdee212d2a1", size = 203949, upload-time = "2026-06-16T01:57:26.358Z" },
+]
+
+[[package]]
+name = "gatedops"
+version = "0.1.0"
+source = { git = "https://github.com/LiamCarPer/GatedOps.git?rev=v0.2.0#f006b1833411cbd98828df2b5fb57a967c3b2b7b" }
+dependencies = [
+    { name = "cloudpickle" },
+    { name = "fastapi" },
+    { name = "mlflow" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "pyyaml" },
+    { name = "scikit-learn" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [[package]]
