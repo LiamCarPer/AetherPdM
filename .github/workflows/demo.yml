@@ -26,13 +26,15 @@ jobs:
         run: uv sync --extra dev --extra web
 
       - name: Install VHS
-        # VHS needs the external `ttyd` binary to render GIFs; it is NOT
-        # bundled by `go install` and is not preinstalled on ubuntu-latest.
+        # VHS needs TWO external binaries to render GIFs: `ttyd` (the PTY
+        # backend) and `ffmpeg` (GIF encoding). Neither is bundled by
+        # `go install`, and neither is preinstalled on ubuntu-latest — the
+        # runner reports "ffmpeg is not installed" if it is missing.
         # (charmbracelet/vhs-action@v3 does not exist yet — latest tag is
-        # v2.1.0 — so install ttyd manually and keep go install.)
+        # v2.1.0 — so install both manually and keep go install.)
         run: |
           sudo apt-get update
-          sudo apt-get install -y ttyd
+          sudo apt-get install -y ttyd ffmpeg
           go install github.com/charmbracelet/vhs@latest
 
       - name: Render tapes
