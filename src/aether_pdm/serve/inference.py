@@ -6,6 +6,7 @@ Usage:
     result = engine.score(waveform=np.array(...), sampling_rate=12000, rpm=1772)
 """
 
+import json
 import logging
 from typing import Any
 
@@ -39,6 +40,7 @@ class InferenceEngine:
     ):
         mlflow.set_tracking_uri(mlflow_uri)
         self.mlflow_uri = mlflow_uri
+        self._manifests: dict[str, dict | None] = {}
         try:
             self.client = mlflow.tracking.MlflowClient()
             self._load_models(anomaly_stage, fault_stage)
@@ -69,6 +71,7 @@ class InferenceEngine:
         model = mlflow.sklearn.load_model(versions[0].source)
         attr = _VERSION_ATTRS.get(name, f"{name}_version")
         setattr(self, attr, versions[0].version)
+        self._manifests[name] = self._read_manifest_tag(name, versions[0].version)
         # Read fault classes from run params if available
         if name == MODEL_FAULT:
             run = self.client.get_run(versions[0].run_id)
@@ -76,6 +79,40 @@ class InferenceEngine:
             if classes_param:
                 self.fault_classes = classes_param.split(",")
         return model
+
+    def _read_manifest_tag(self, name: str, version: Any) -> dict | None:
+        """Read the GatedOps lineage manifest tag recorded at promotion time."""
+        try:
+            version_obj = self.client.get_model_version(name, str(version))
+            raw = version_obj.tags.get("gatedops.manifest")
+        except Exception:
+            return None
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except ValueError:
+            return None
+
+    def _lineage(self, name: str) -> dict[str, str | None] | None:
+        """Map a stored manifest to the lineage fields echoed on every score."""
+        manifest = self._manifests.get(name)
+        if not manifest:
+            return None
+        return {
+            "model_name": manifest.get("model_name"),
+            "model_version": manifest.get("model_version"),
+            "artifact_hash": manifest.get("artifact_hash"),
+            "git_sha": manifest.get("git_sha"),
+            "run_id": manifest.get("run_id"),
+            "data_hash": manifest.get("data_hash"),
+        }
+
+    def _lineage_block(self) -> dict[str, dict[str, str | None] | None]:
+        return {
+            "anomaly": self._lineage(MODEL_ANOMALY),
+            "fault": self._lineage(MODEL_FAULT),
+        }
 
         # Load label encoder from fault model classes
         self.fault_classes = self.fault_model.classes_.tolist()
@@ -108,6 +145,7 @@ class InferenceEngine:
                     "anomaly": getattr(self, "anomaly_version", "?"),
                     "fault": getattr(self, "fault_version", "?"),
                 },
+                "lineage": self._lineage_block(),
             }
 
         # Compute features for the first window
@@ -157,4 +195,5 @@ class InferenceEngine:
                 "anomaly": getattr(self, "anomaly_version", "?"),
                 "fault": getattr(self, "fault_version", "?"),
             },
+            "lineage": self._lineage_block(),
         }

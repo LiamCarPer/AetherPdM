@@ -119,6 +119,7 @@ class ScoreResponse(BaseModel):
     alert: AlertInfo
     top_features: list[dict[str, Any]] = []
     score_id: int | None = None
+    lineage: dict[str, Any] | None = None
 
 
 class AlertRecord(BaseModel):
@@ -280,6 +281,7 @@ async def score_asset(
         alert=AlertInfo(**alert),
         top_features=result["top_features"],
         score_id=int(record.id),
+        lineage=result.get("lineage"),
     )
 
 
