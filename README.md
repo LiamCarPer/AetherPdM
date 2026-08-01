@@ -292,6 +292,25 @@ aether-pdm/
 - **RUL**: light severity scoring, not full remaining-useful-life prediction (Fase 2)
 - **Cloud**: not deployed; runs locally via Docker Compose (cloud target: Azure/AWS TBD)
 
+## Model Release Contract (GatedOps)
+
+AetherPdM is the vertical product; **GatedOps** is its release system. This
+repository depends on
+[GatedOps](https://github.com/LiamCarPer/GatedOps) (`gatedops` on PyPI-style
+git dependency) and its promotion gates run through the same engine that
+promotes GatedOps' reference models:
+
+- `aether_pdm.ops.promote` evaluates candidates with
+  `gatedops.gate.engine.evaluate_gate` against the declarative gates in
+  `configs/promote.yaml` (`detection_rate`, `false_alarm_rate`, `f1_macro`,
+  `balanced_accuracy`).
+- Every promotion records a **GatedOps lineage manifest** as the
+  `gatedops.manifest` model-version tag (artifact hash, data hash, run id,
+  git sha, gate verdict).
+- The scoring API echoes that lineage in every `/score` response.
+
+One contract promotes a churn demo model and a bearing fault classifier.
+
 ## Development Note
 
 This project was built using AI agents (opencode). All architecture decisions,
