@@ -6,6 +6,9 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
+from gatedops.gate.engine import evaluate_gate
+from gatedops.gate.rules import GateConfig, ThresholdRule
+from gatedops.manifest.schema import ModelManifest
 from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.tree import DecisionTreeClassifier
@@ -45,6 +48,7 @@ def _mock_mlflow(monkeypatch):
     )
     monkeypatch.setattr(promote_mod.mlflow, "log_params", lambda *args, **kwargs: None)
     monkeypatch.setattr(promote_mod.mlflow, "log_metrics", lambda *args, **kwargs: None)
+    monkeypatch.setattr(promote_mod, "_attach_manifest", lambda *args, **kwargs: None)
     return transitions
 
 
@@ -174,6 +178,7 @@ def test_promote_anomaly_promotes_when_metrics_pass(monkeypatch, tmp_path):
 
     assert result["decision"] == "promoted"
     assert result["candidate_version"] == 1
+    assert result["gate"].status == "PASS"
     assert transitions == [("aether-anomaly", "1", "Production")]
 
 
@@ -194,6 +199,7 @@ def test_promote_anomaly_rejects_when_thresholds_not_met(monkeypatch, tmp_path):
     result = promote_mod.promote_anomaly(features_path=feat_path)
 
     assert result["decision"] == "rejected"
+    assert result["gate"].status == "FAIL"
     assert transitions == []
     assert "FAR" in result["reason"]
     assert "DR" in result["reason"]
@@ -562,3 +568,85 @@ def test_load_fault_label_encoder_missing_classes_raises():
 
     with pytest.raises(ValueError, match="No 'classes' param"):
         promote_mod._load_fault_label_encoder(FakeClient(), "aether-fault-clf", 1)
+
+
+def test_attach_manifest_sets_gatedops_tag(monkeypatch, tmp_path):
+    """_attach_manifest should record a valid GatedOps ModelManifest tag."""
+    import aether_pdm.ops.promote as promote_mod
+
+    artifact = tmp_path / "model.pkl"
+    artifact.write_bytes(b"model-bytes")
+    features = tmp_path / "features.parquet"
+    features.write_bytes(b"features")
+
+    tags: dict[str, str] = {}
+
+    class FakeClient:
+        def get_model_version(self, name, version):
+            return SimpleNamespace(run_id="run-1")
+
+        def set_model_version_tag(self, name, version, key, value):
+            tags[key] = value
+
+    class FakeRegistry:
+        def version_artifact(self, model_name, model_version):
+            return artifact
+
+    monkeypatch.setattr(promote_mod, "MlflowRegistry", lambda *a, **k: FakeRegistry())
+
+    gate = GateConfig(
+        thresholds=[ThresholdRule(metric="detection_rate", op=">=", value=0.80)]
+    )
+    report = evaluate_gate(gate, {"detection_rate": 0.9}, model_name="aether-anomaly")
+
+    manifest = promote_mod._attach_manifest(
+        FakeClient(), "aether-anomaly", 1, {"detection_rate": 0.9}, report, features
+    )
+
+    parsed = ModelManifest.model_validate_json(tags["gatedops.manifest"])
+    assert parsed.model_name == "aether-anomaly"
+    assert parsed.model_version == "1"
+    assert parsed.run_id == "run-1"
+    assert parsed.artifact_hash == manifest.artifact_hash
+    assert parsed.gate is not None
+    assert parsed.gate.status == "PASS"
+    assert parsed.promote_stage == "Production"
+
+
+def test_promote_anomaly_attaches_manifest(monkeypatch, tmp_path):
+    """promote_anomaly should record the manifest via _attach_manifest."""
+    import aether_pdm.ops.promote as promote_mod
+
+    feat_path = _write_features(tmp_path)
+    model = IsolationForest(contamination=0.1, random_state=42).fit(np.random.randn(10, 4))
+    calls: list[tuple] = []
+
+    def _record(*args, **kwargs):
+        calls.append(args)
+        return None
+
+    _mock_mlflow(monkeypatch)
+    monkeypatch.setattr(promote_mod, "_load_candidate_model", lambda name, client: (model, 1))
+    monkeypatch.setattr(
+        promote_mod, "evaluate_anomaly_candidate", lambda *a, **k: _anomaly_metrics()
+    )
+    monkeypatch.setattr(promote_mod, "_attach_manifest", _record)
+
+    promote_mod.promote_anomaly(features_path=feat_path)
+
+    assert len(calls) == 1
+    assert calls[0][1] == "aether-anomaly"
+
+
+def test_load_promote_gates():
+    """The canonical gate yaml should parse into GatedOps GateConfigs."""
+    from gatedops.gate.rules import GateConfig
+
+    from aether_pdm.ops.promote import load_promote_gates
+
+    gates = load_promote_gates()
+
+    assert isinstance(gates["anomaly"], GateConfig)
+    assert gates["anomaly"].thresholds[0].metric == "detection_rate"
+    assert gates["anomaly"].thresholds[0].op == ">="
+    assert gates["fault"].thresholds[0].metric == "f1_macro"
