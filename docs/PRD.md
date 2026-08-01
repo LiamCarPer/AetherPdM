@@ -44,6 +44,8 @@ AetherPdM addresses the gap between "no data" and "expensive enterprise PdM suit
 | UC-06 | **Batch scoring** — score all assets on schedule | Cron trigger or Prefect flow |
 | UC-07 | **Drift detection** — alert when feature distributions shift | PSI/KS monitor per feature |
 | UC-08 | **Domain shift eval** — train on CWRU, evaluate on Paderborn | Documented performance delta |
+| UC-09 | **API key security** — authenticate API requests | Valid key → 200; missing/invalid/revoked → 401; plaintext never stored |
+| UC-10 | **Tenant isolation** — org-scoped data access | Cross-org read → 403; cross-org write → 403 + rollback; dev-mode default org documented |
 
 ### Won't-have (explicitly out of scope)
 

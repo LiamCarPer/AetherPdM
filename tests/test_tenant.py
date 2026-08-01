@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from aether_pdm.db.database import Base
+from aether_pdm.db.models import Alert
 from aether_pdm.db.repository import (
     acknowledge_alert,
     get_asset,
@@ -56,6 +57,21 @@ def _override_get_db():
 
 def _seed_asset(db, asset_id, org):
     upsert_asset(db, asset_id, org=org, plant="plant-1")
+
+
+def _metrics_series_value(body: str, series: str) -> float:
+    """Parse the latest sample value for ``series`` (0.0 if absent).
+
+    Prometheus only emits a series after its first ``inc()``/``set()``, so
+    callers must treat "absent" as 0.0 rather than fail.
+    """
+    for line in body.splitlines():
+        if line.startswith(series) and not line.startswith("#"):
+            try:
+                return float(line.rsplit(" ", 1)[-1])
+            except ValueError:
+                continue
+    return 0.0
 
 
 @pytest.fixture(autouse=True)
@@ -299,6 +315,47 @@ async def test_hijack_probe_full_closure(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_403_does_not_increment_predictions(client, db_session):
+    """A 403 cross-org score must NOT inflate business telemetry.
+
+    Regression for ops advisory A-3: prediction/alert counters were updated
+    BEFORE the org guard, so rejected requests inflated counters and created
+    a phantom health_score series for a foreign asset. Counters must only
+    move on a fully authorized (org-owned) scoring.
+    """
+    upsert_asset(db_session, "motor-1", org="other")
+    db_session.commit()
+    acme_key = create_key(db_session, name="acme-key", org="acme")
+
+    predictions = 'aetherpdm_predictions_total{class="normal"}'
+    alerts = 'aetherpdm_alerts_total{level="healthy"}'
+    health = 'aetherpdm_health_score{asset_id="motor-1"}'
+
+    before_p = _metrics_series_value((await client.get("/metrics")).text, predictions)
+    before_a = _metrics_series_value((await client.get("/metrics")).text, alerts)
+    before_h = _metrics_series_value((await client.get("/metrics")).text, health)
+
+    payload = {"waveform": [0.1] * 2048, "sampling_rate": 12000}
+    with patch("aether_pdm.serve.app.get_engine") as mock_get_engine:
+        mock_engine = mock_get_engine.return_value
+        mock_engine.score.return_value = _MOCK_RESULT
+        resp = await client.post(
+            "/v1/assets/motor-1/score",
+            json=payload,
+            headers={"X-API-Key": acme_key["api_key"]},
+        )
+        assert resp.status_code == 403
+
+    after_p = _metrics_series_value((await client.get("/metrics")).text, predictions)
+    after_a = _metrics_series_value((await client.get("/metrics")).text, alerts)
+    after_h = _metrics_series_value((await client.get("/metrics")).text, health)
+
+    assert after_p == before_p
+    assert after_a == before_a
+    assert after_h == before_h
+
+
+@pytest.mark.asyncio
 async def test_score_own_asset_ok_for_tenant(client, db_session):
     """A tenant scoring its own asset still succeeds (org guard is a no-op)."""
     upsert_asset(db_session, "motor-1", org="acme", plant="plant-1")
@@ -491,6 +548,43 @@ def test_acknowledge_alert(db_session):
     assert updated.acknowledged == 1
 
     assert acknowledge_alert(db_session, 999999) is None
+
+
+def test_acknowledge_alert_org_scoped(db_session):
+    """acknowledge_alert refuses cross-org acks when org is provided."""
+    upsert_asset(db_session, "motor-1", org="other")
+    alert = save_alert(
+        db_session,
+        "motor-1",
+        level="critical",
+        reason="vibration",
+        health_score=0.2,
+    )
+    db_session.commit()
+    assert alert.acknowledged == 0
+
+    # cross-org acknowledge must be refused and leave the row untouched
+    assert acknowledge_alert(db_session, alert.id, org="acme") is None
+    db_session.commit()
+    assert db_session.get(Alert, alert.id).acknowledged == 0
+
+    # owning org can acknowledge
+    updated = acknowledge_alert(db_session, alert.id, org="other")
+    assert updated is not None
+    assert updated.acknowledged == 1
+
+    # unknown org for an existing asset is also refused
+    other_alert = save_alert(
+        db_session,
+        "motor-1",
+        level="warning",
+        reason="noise",
+        health_score=0.5,
+    )
+    db_session.commit()
+    assert acknowledge_alert(db_session, other_alert.id, org="ghost") is None
+    db_session.commit()
+    assert db_session.get(Alert, other_alert.id).acknowledged == 0
 
 
 def test_list_alerts_level_and_asset_filters(db_session):

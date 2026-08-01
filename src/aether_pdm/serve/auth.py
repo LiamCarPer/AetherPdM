@@ -7,6 +7,17 @@ When true, /v1/* routes require a valid key; /health, /metrics, /docs,
 /openapi.json remain open.
 
 Key format: aether_<prefix>_<secret>  (e.g. aether_Ab12cD34_<random>)
+
+Stored hashes use a versioned PBKDF2-HMAC-SHA256 scheme so iteration
+counts can be raised without invalidating existing keys:
+
+  ``v2:<salt_hex>:<dk_hex>``  — 600k iterations (current default)
+  ``v1:<salt_hex>:<dk_hex>``  — 100k iterations (legacy, still verified)
+  ``<salt_hex>:<dk_hex>``     — implicit v1 (pre-versioning format)
+
+New hashes are always written as ``v2``; verification transparently
+supports both versions so stored keys keep working after the OWASP 2023
+iteration bump (100k -> 600k).
 """
 
 import hashlib
@@ -25,6 +36,11 @@ from aether_pdm.db.repository import get_api_key_by_prefix
 
 KEY_PREFIX_LEN = 8
 KEY_SECRET_LEN = 24  # raw random bytes -> 48-char hex secret
+
+# OWASP 2023 recommendation for PBKDF2-HMAC-SHA256 is >= 600k iterations.
+PBKDF2_ITERATIONS = 600_000
+_LEGACY_ITERATIONS = 100_000
+_HASH_VERSION = 2
 
 DEFAULT_ORG = "default"
 
@@ -49,21 +65,41 @@ def auth_enabled() -> bool:
 
 
 def hash_api_key(secret_part: str) -> str:
-    """PBKDF2-HMAC-SHA256 hash of the secret part (with per-key salt)."""
+    """PBKDF2-HMAC-SHA256 (v2, 600k iterations) with per-key salt.
+
+    Returns a versioned hash ``v2:<salt_hex>:<dk_hex>`` so future
+    iteration-count bumps can keep verifying older hashes.
+    """
     salt = secrets.token_bytes(16)
-    dk = hashlib.pbkdf2_hmac("sha256", secret_part.encode(), salt, 100_000)
-    return salt.hex() + ":" + dk.hex()
+    dk = hashlib.pbkdf2_hmac("sha256", secret_part.encode(), salt, PBKDF2_ITERATIONS)
+    return f"v{_HASH_VERSION}:{salt.hex()}:{dk.hex()}"
 
 
 def verify_api_key_hash(secret_part: str, stored_hash: str) -> bool:
-    """Constant-time comparison of a candidate secret against the stored hash."""
+    """Constant-time verification; supports v2 (600k) and legacy v1 (100k).
+
+    Versioned formats are ``v2:<salt_hex>:<dk_hex>`` and
+    ``v1:<salt_hex>:<dk_hex>``. Hashes without a version prefix use the
+    pre-versioning ``<salt_hex>:<dk_hex>`` format and are verified as v1
+    (100k iterations) for backward compatibility.
+    """
     try:
-        salt_hex, dk_hex = stored_hash.split(":")
+        parts = stored_hash.split(":")
+        if len(parts) == 3 and parts[0].startswith("v"):
+            version = parts[0]
+            salt_hex, dk_hex = parts[1], parts[2]
+            iterations = PBKDF2_ITERATIONS if version == "v2" else _LEGACY_ITERATIONS
+        elif len(parts) == 2:
+            # legacy format: salt:dk (implicit v1 / 100k)
+            salt_hex, dk_hex = parts
+            iterations = _LEGACY_ITERATIONS
+        else:
+            return False
         salt = bytes.fromhex(salt_hex)
         expected = bytes.fromhex(dk_hex)
     except ValueError:
         return False
-    candidate = hashlib.pbkdf2_hmac("sha256", secret_part.encode(), salt, 100_000)
+    candidate = hashlib.pbkdf2_hmac("sha256", secret_part.encode(), salt, iterations)
     return hmac.compare_digest(candidate, expected)
 
 

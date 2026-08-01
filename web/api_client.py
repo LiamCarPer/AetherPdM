@@ -5,11 +5,25 @@ from typing import Any
 import httpx
 import streamlit as st
 
+from web.config import get_api_key
+
+
+def _headers() -> dict[str, str]:
+    """Return auth headers if an API key is configured.
+
+    When AETHER_API_KEY is set (auth enabled), every request must carry
+    X-API-Key or the backend returns 401.
+    """
+    key = get_api_key()
+    if key:
+        return {"X-API-Key": key}
+    return {}
+
 
 def check_health(base_url: str) -> bool:
     """Check if the AetherPdM API is online and responding."""
     try:
-        response = httpx.get(f"{base_url}/health", timeout=3.0)
+        response = httpx.get(f"{base_url}/health", headers=_headers(), timeout=3.0)
         return response.status_code == 200 and response.json().get("status") == "ok"
     except Exception:
         return False
@@ -19,7 +33,7 @@ def check_health(base_url: str) -> bool:
 def fetch_assets(base_url: str) -> list[dict[str, Any]]:
     """Fetch all registered assets from the backend."""
     try:
-        response = httpx.get(f"{base_url}/v1/assets", timeout=5.0)
+        response = httpx.get(f"{base_url}/v1/assets", headers=_headers(), timeout=5.0)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -31,7 +45,9 @@ def fetch_assets(base_url: str) -> list[dict[str, Any]]:
 def fetch_asset_detail(base_url: str, asset_id: str) -> dict[str, Any] | None:
     """Fetch details for a specific asset by ID."""
     try:
-        response = httpx.get(f"{base_url}/v1/assets/{asset_id}", timeout=5.0)
+        response = httpx.get(
+            f"{base_url}/v1/assets/{asset_id}", headers=_headers(), timeout=5.0
+        )
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -54,7 +70,9 @@ def fetch_alerts(
         params["level"] = level
 
     try:
-        response = httpx.get(f"{base_url}/v1/alerts", params=params, timeout=5.0)
+        response = httpx.get(
+            f"{base_url}/v1/alerts", params=params, headers=_headers(), timeout=5.0
+        )
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -81,6 +99,7 @@ def post_score(
         response = httpx.post(
             f"{base_url}/v1/assets/{asset_id}/score",
             json=payload,
+            headers=_headers(),
             timeout=15.0,
         )
         response.raise_for_status()

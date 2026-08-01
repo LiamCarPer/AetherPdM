@@ -216,11 +216,22 @@ def list_alerts(
     return q.order_by(desc(Alert.created_at)).limit(limit).all()
 
 
-def acknowledge_alert(db: Session, alert_id: int) -> Alert | None:
+def acknowledge_alert(db: Session, alert_id: int, org: str | None = None) -> Alert | None:
+    """
+    Acknowledge an alert. If org provided, the alert's asset must belong to it.
+
+    Returns the updated Alert on success, None when the alert does not exist
+    or (when org is given) the alert's asset belongs to a different org.
+    """
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
-    if alert:
-        alert.acknowledged = 1  # type: ignore[assignment]
-        db.flush()
+    if alert is None:
+        return None
+    if org is not None:
+        asset = db.query(Asset).filter(Asset.asset_id == alert.asset_id).first()
+        if asset is None or asset.org != org:
+            return None
+    alert.acknowledged = 1  # type: ignore[assignment]
+    db.flush()
     return alert
 
 

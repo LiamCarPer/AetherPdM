@@ -1,6 +1,8 @@
 """Tests for API key authentication."""
 
+import hashlib
 import os
+import secrets
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -188,6 +190,56 @@ def test_hash_roundtrip():
     assert verify_api_key_hash(secret, stored) is True
     assert verify_api_key_hash("wrong-secret", stored) is False
     assert verify_api_key_hash(secret, "not-a-valid-stored-hash") is False
+
+
+def test_hash_v2_roundtrip():
+    """New hashes are v2-versioned and verify with the right secret only."""
+    _, _, secret = generate_api_key()
+    stored = hash_api_key(secret)
+    # v2 scheme: v2:<salt_hex>:<dk_hex>
+    assert stored.startswith("v2:")
+    parts = stored.split(":")
+    assert len(parts) == 3
+    # salt + derived key are hex
+    assert bytes.fromhex(parts[1])
+    assert bytes.fromhex(parts[2])
+    # same secret verifies; wrong secret is rejected
+    assert verify_api_key_hash(secret, stored) is True
+    assert verify_api_key_hash("wrong-secret", stored) is False
+
+
+def test_verify_legacy_v1_hash():
+    """Legacy 100k-iteration hashes (salt:dk and v1: salt:dk) still verify."""
+    secret = "legacy-secret"
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", secret.encode(), salt, 100_000)
+
+    # pre-versioning format: salt:dk (implicit v1)
+    legacy = f"{salt.hex()}:{dk.hex()}"
+    assert verify_api_key_hash(secret, legacy) is True
+    assert verify_api_key_hash("wrong-secret", legacy) is False
+
+    # explicit v1-prefixed format
+    versioned_v1 = f"v1:{salt.hex()}:{dk.hex()}"
+    assert verify_api_key_hash(secret, versioned_v1) is True
+    assert verify_api_key_hash("wrong-secret", versioned_v1) is False
+
+
+def test_verify_malformed_hash_returns_false():
+    """Garbage, truncated, and unknown-version hashes are rejected."""
+    _, _, secret = generate_api_key()
+    malformed = [
+        "not-a-valid-stored-hash",
+        "v2:onlyone",
+        "v2:zz:yy",             # invalid hex salt
+        "v2:salt:dk:extra",     # too many parts
+        "v3:abc:def",           # unknown version
+        "v1:onlytwo",
+        "v2:",                  # empty parts
+        "v0:00:00",             # bogus version with valid hex
+    ]
+    for stored in malformed:
+        assert verify_api_key_hash(secret, stored) is False, stored
 
 
 def test_generate_key_format():

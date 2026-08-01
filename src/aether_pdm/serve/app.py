@@ -12,6 +12,7 @@ Endpoints:
   GET  /health                      — Health check
 """
 
+import logging
 import os
 from collections.abc import Generator
 from contextlib import asynccontextmanager
@@ -42,7 +43,7 @@ from aether_pdm.db.repository import (
 from aether_pdm.db.repository import (
     list_plants as db_list_plants,
 )
-from aether_pdm.serve.auth import DEFAULT_ORG, Tenant, require_api_key
+from aether_pdm.serve.auth import DEFAULT_ORG, Tenant, auth_enabled, require_api_key
 from aether_pdm.serve.inference import InferenceEngine
 from aether_pdm.serve.metrics import (
     ALERTS_TOTAL,
@@ -57,6 +58,13 @@ from aether_pdm.serve.metrics import (
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    if auth_enabled():
+        # Ops advisory A-6: auth breakage is silent for dashboard users unless
+        # we surface it here.
+        logging.getLogger(__name__).warning(
+            "API key auth is ENABLED. External clients must send X-API-Key. "
+            "The Streamlit dashboard requires AETHER_API_KEY to be set."
+        )
     yield
 
 
@@ -220,22 +228,6 @@ async def score_asset(
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-    # Prometheus business metrics (only on successful scoring)
-    fault_class = result.get("fault", {}).get("class", "unknown")
-    PREDICTIONS_TOTAL.labels(**{"class": fault_class}).inc()
-    alert_level = result["alert"]["level"]
-    ALERTS_TOTAL.labels(level=alert_level).inc()
-    HEALTH_SCORE_GAUGE.labels(asset_id=asset_id).set(float(result["health_score"]))
-    for model_name, version in result["model_versions"].items():
-        try:
-            numeric_version = float(version)
-        except (ValueError, TypeError):
-            # `labels()` registers the child series at 0.0 BEFORE set(); calling
-            # it before conversion would export a misleading "model version 0"
-            # sample for semver strings like "v1.2.3-beta". Skip entirely.
-            continue
-        MODEL_VERSION.labels(model_name=model_name).set(numeric_version)
-
     # Persist score
     record = save_score(db, asset_id, result)
 
@@ -260,6 +252,24 @@ async def score_asset(
         upsert_asset(db, asset_id, expected_org=expected, org=tenant.org)
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
+
+    # Prometheus business metrics (only on authorized successful scoring).
+    # Kept AFTER the org guard so a 403 cross-org attempt never inflates
+    # telemetry or creates a phantom health_score series for a foreign asset.
+    fault_class = result.get("fault", {}).get("class", "unknown")
+    PREDICTIONS_TOTAL.labels(**{"class": fault_class}).inc()
+    alert_level = result["alert"]["level"]
+    ALERTS_TOTAL.labels(level=alert_level).inc()
+    HEALTH_SCORE_GAUGE.labels(asset_id=asset_id).set(float(result["health_score"]))
+    for model_name, version in result["model_versions"].items():
+        try:
+            numeric_version = float(version)
+        except (ValueError, TypeError):
+            # `labels()` registers the child series at 0.0 BEFORE set(); calling
+            # it before conversion would export a misleading "model version 0"
+            # sample for semver strings like "v1.2.3-beta". Skip entirely.
+            continue
+        MODEL_VERSION.labels(model_name=model_name).set(numeric_version)
 
     return ScoreResponse(
         asset_id=asset_id,
