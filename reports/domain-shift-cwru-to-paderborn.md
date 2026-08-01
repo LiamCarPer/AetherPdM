@@ -2,7 +2,7 @@
 
 - **Source features**: `data\interim\features\features_v1.parquet`
 - **Target features**: `data\interim\paderborn\features_v1.parquet`
-- **Generated**: 2026-07-31T23:07:44+00:00
+- **Generated**: 2026-08-01T22:48:13+00:00
 - **Models loaded**: yes
 
 ## Summary
