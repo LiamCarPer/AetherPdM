@@ -3,6 +3,7 @@
 [![CI](https://github.com/LiamCarPer/AetherPdM/actions/workflows/ci.yml/badge.svg)](https://github.com/LiamCarPer/AetherPdM/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![VHS](https://img.shields.io/badge/demo-VHS-9B59B6.svg)](docs/demo/)
 
 **B2B condition monitoring + predictive maintenance** for bearings and rotating machinery.
 From vibration signal to fault classification, health score, and operational alerts.
@@ -242,6 +243,16 @@ curl -X POST http://localhost:8000/v1/assets/motor-001/score \
   -H "Content-Type: application/json" \
   -d '{"waveform": [0.1, 0.2, ...], "sampling_rate": 12000}'
 ```
+
+## Demo
+
+Scripted terminal recordings (Charmbracelet VHS) of the key workflows:
+
+- **Ops Loop**: batch scoring → drift detection → CWRU→Paderborn domain shift
+- **Secure API**: API key creation → 401 → authorized scoring
+
+Render locally (Linux/macOS): `vhs docs/demo/ops-loop.tape`
+See `docs/demo/README.md` for details.
 
 ## Metrics That Matter
 

@@ -1,0 +1,48 @@
+name: Demo GIFs
+
+on:
+  workflow_dispatch:          # manual trigger
+  push:
+    paths:
+      - 'docs/demo/*.tape'    # re-render when tapes change
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          python-version: '3.12'
+          enable-cache: true
+
+      - name: Sync dependencies
+        # The tapes run real `uv run python ...` commands. Sync the repo so
+        # they at least attempt on CI. Note: the runner has no trained models,
+        # feature parquet, or running API — CI GIFs show the real commands
+        # being typed; local renders (with real data) are the full demo.
+        run: uv sync --extra dev --extra web
+
+      - name: Install VHS
+        # VHS needs the external `ttyd` binary to render GIFs; it is NOT
+        # bundled by `go install` and is not preinstalled on ubuntu-latest.
+        # (charmbracelet/vhs-action@v3 does not exist yet — latest tag is
+        # v2.1.0 — so install ttyd manually and keep go install.)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ttyd
+          go install github.com/charmbracelet/vhs@latest
+
+      - name: Render tapes
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          vhs docs/demo/ops-loop.tape
+          vhs docs/demo/api.tape
+
+      - name: Upload GIFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-gifs
+          path: docs/demo/*.gif
