@@ -1,12 +1,13 @@
 """Repository layer for database operations."""
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from aether_pdm.db.models import Alert, Asset, ScoreRecord
+from aether_pdm.db.models import Alert, ApiKey, Asset, ScoreRecord
 
 # --- Assets ---
 
@@ -115,3 +116,42 @@ def acknowledge_alert(db: Session, alert_id: int) -> Alert | None:
         alert.acknowledged = 1  # type: ignore[assignment]
         db.flush()
     return alert
+
+
+# --- API Keys ---
+
+
+def create_api_key(
+    db: Session,
+    name: str,
+    key_prefix: str,
+    key_hash: str,
+    org: str = "default",
+) -> ApiKey:
+    """Persist a new API key record (prefix + hash only — never the plaintext)."""
+    key = ApiKey(name=name, key_prefix=key_prefix, key_hash=key_hash, org=org)
+    db.add(key)
+    db.flush()
+    return key
+
+
+def get_api_key_by_prefix(db: Session, key_prefix: str) -> ApiKey | None:
+    """Fetch key record by its 8-12 char prefix (indexed lookup)."""
+    return db.query(ApiKey).filter(ApiKey.key_prefix == key_prefix).first()
+
+
+def list_api_keys(db: Session, include_revoked: bool = False) -> list[ApiKey]:
+    """List keys, optionally including revoked ones."""
+    q = db.query(ApiKey).order_by(ApiKey.id)
+    if not include_revoked:
+        q = q.filter(ApiKey.revoked_at.is_(None))
+    return q.all()
+
+
+def revoke_api_key(db: Session, key_id: int) -> ApiKey | None:
+    """Set revoked_at = now. Returns the key or None if not found."""
+    key = db.query(ApiKey).filter(ApiKey.id == key_id).first()
+    if key:
+        key.revoked_at = datetime.now(UTC)  # type: ignore[assignment]
+        db.flush()
+    return key

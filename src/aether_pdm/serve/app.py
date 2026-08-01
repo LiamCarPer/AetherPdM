@@ -32,6 +32,7 @@ from aether_pdm.db.repository import (
 from aether_pdm.db.repository import (
     list_assets as db_list_assets,
 )
+from aether_pdm.serve.auth import require_api_key
 from aether_pdm.serve.inference import InferenceEngine
 from aether_pdm.serve.metrics import (
     ALERTS_TOTAL,
@@ -158,12 +159,12 @@ async def metrics():
     return Response(content=body, media_type=content_type)
 
 
-@app.get("/v1/assets", response_model=list[AssetRecord])
+@app.get("/v1/assets", response_model=list[AssetRecord], dependencies=[Depends(require_api_key)])
 async def list_assets(db: DbDep):
     return db_list_assets(db)
 
 
-@app.get("/v1/assets/{asset_id}")
+@app.get("/v1/assets/{asset_id}", dependencies=[Depends(require_api_key)])
 async def get_asset_endpoint(asset_id: str, db: DbDep):
     asset = get_asset(db, asset_id)
     if not asset:
@@ -171,7 +172,11 @@ async def get_asset_endpoint(asset_id: str, db: DbDep):
     return AssetRecord.model_validate(asset)
 
 
-@app.post("/v1/assets/{asset_id}/score", response_model=ScoreResponse)
+@app.post(
+    "/v1/assets/{asset_id}/score",
+    response_model=ScoreResponse,
+    dependencies=[Depends(require_api_key)],
+)
 async def score_asset(asset_id: str, request: ScoreRequest, db: DbDep):
     n = len(request.waveform)
     if n == 0:
@@ -232,7 +237,7 @@ async def score_asset(asset_id: str, request: ScoreRequest, db: DbDep):
     )
 
 
-@app.get("/v1/alerts", response_model=list[AlertRecord])
+@app.get("/v1/alerts", response_model=list[AlertRecord], dependencies=[Depends(require_api_key)])
 async def list_alerts(
     db: DbDep,
     asset_id: str | None = None,

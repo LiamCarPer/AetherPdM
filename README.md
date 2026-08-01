@@ -130,6 +130,31 @@ Example response from `/v1/assets/{id}/score`:
 }
 ```
 
+## API Key Authentication
+
+By default auth is disabled (`AETHER_API_KEY_AUTH_ENABLED=false`) for local dev.
+Enable it for production-like operation:
+
+```bash
+# Enable auth
+export AETHER_API_KEY_AUTH_ENABLED=true
+
+# Create a key
+uv run python scripts/manage_keys.py create --name demo
+# → aether_Ab12cD34_xxxxxxxxxxxxxxx  (shown once)
+
+# Use it
+curl -H "X-API-Key: aether_Ab12cD34_xxxxxxxxxxxxxxx" \
+  http://localhost:8000/v1/assets
+
+# List / revoke
+uv run python scripts/manage_keys.py list
+uv run python scripts/manage_keys.py revoke --id 1
+```
+
+Keys are stored hashed (PBKDF2-HMAC-SHA256) — the plaintext is shown only once.
+`/health`, `/metrics`, `/docs` remain unauthenticated by design.
+
 ## Quick Start
 
 ```bash

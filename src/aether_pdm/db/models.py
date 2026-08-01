@@ -54,3 +54,15 @@ class Alert(Base):
     fault_class = Column(String(50), nullable=True)
     acknowledged = Column(Integer, default=0)  # 0 = no, 1 = yes
     created_at = Column(DateTime, default=_now, index=True)
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(100), nullable=False)  # human label: "demo", "plant-1"
+    key_prefix = Column(String(12), nullable=False, index=True)  # first chars for lookup
+    key_hash = Column(String(256), nullable=False)  # PBKDF2 hash (never plaintext)
+    org = Column(String(100), default="default")  # tenant seed for future multi-tenant
+    created_at = Column(DateTime, default=_now)
+    revoked_at = Column(DateTime, nullable=True)  # None = active
