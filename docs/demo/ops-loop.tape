@@ -14,16 +14,18 @@ Set TypingSpeed 40ms
 
 Type "echo 'AetherPdM — Autonomous Ops Loop Demo'"
 Enter
-Sleep 500ms
+Sleep 1s
 Type "echo '====================================='"
 Enter
-Sleep 500ms
+Sleep 1s
 Ctrl+L
 
 # 1. Show the batch scorer (real CLI)
 Type "uv run python scripts/run_ops_pipeline.py --features data/interim/features/features_v1.parquet --org acme --no-retrain"
 Enter
-Sleep 3s
+# This loads MLflow models + runs drift detection over the features parquet;
+# give it time to finish before clearing the screen.
+Sleep 12s
 Ctrl+L
 
 # 2. Show the domain shift study (the wow moment)
@@ -32,10 +34,12 @@ Ctrl+L
 # ops pipeline references. A local render needs both parquet files to exist.
 Type "uv run python scripts/run_domain_shift.py --cwru-features data/interim/features/features_v1.parquet --paderborn-features data/interim/paderborn/features_v1.parquet --output reports/domain-shift-cwru-to-paderborn.md"
 Enter
-Sleep 4s
+# This evaluates models on thousands of CWRU + Paderborn windows and writes
+# the report — the slowest step. Give it the most time.
+Sleep 20s
 Ctrl+L
 
 # 3. Show the drift report
 Type "cat reports/domain-shift-cwru-to-paderborn.md | head -40"
 Enter
-Sleep 3s
+Sleep 5s

@@ -21,27 +21,30 @@ Set TypingSpeed 40ms
 
 Type "echo 'AetherPdM — Secure API Demo'"
 Enter
-Sleep 500ms
+Sleep 1s
 Ctrl+L
 
 # 1. Create an org-scoped key
 Type "uv run python scripts/manage_keys.py create --name plant-1 --org acme"
 Enter
-Sleep 2s
+# Give the CLI time to print the key (shown once) before clearing.
+Sleep 3s
 Ctrl+L
 
 # 2. Enable auth (documented env var)
 Type "export AETHER_API_KEY_AUTH_ENABLED=true"
 Enter
-Sleep 500ms
+Sleep 1s
 
 # 3. Score without a key → 401
 Type `curl -s -X POST http://localhost:8000/v1/assets/motor-001/score -H 'Content-Type: application/json' -d '{"waveform": [0.1]*200, "sampling_rate": 12000}'`
 Enter
-Sleep 2s
+# Wait for the 401 response to render before clearing.
+Sleep 4s
 Ctrl+L
 
 # 4. Score WITH the key → 200
 Type `curl -s -X POST http://localhost:8000/v1/assets/motor-001/score -H 'Content-Type: application/json' -H 'X-API-Key: aether_Ab12cD34_xxxxxxxxxxxx' -d '{"waveform": [0.1]*200, "sampling_rate": 12000}'`
 Enter
-Sleep 3s
+# Scoring does feature extraction + model inference — give it time for the 200.
+Sleep 6s
