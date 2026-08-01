@@ -112,8 +112,11 @@ Grafana dashboard at http://localhost:3000 (admin/admin).
 | `GET` | `/health` | Readiness check |
 | `POST` | `/v1/assets/{asset_id}/score` | Score a vibration waveform, persist alert |
 | `GET` | `/v1/alerts` | List alerts (filterable: `asset_id`, `level`, `limit`) |
-| `GET` | `/v1/assets` | List registered assets |
-| `GET` | `/v1/assets/{asset_id}` | Get asset detail by ID |
+| `GET` | `/v1/assets` | List registered assets (tenant-scoped) |
+| `GET` | `/v1/assets/{asset_id}` | Get asset detail by ID (tenant-scoped) |
+| `GET` | `/v1/orgs` | List organizations |
+| `GET` | `/v1/orgs/{org_id}/assets` | List assets for an org (403 on cross-org unless default) |
+| `GET` | `/v1/orgs/{org_id}/plants` | List plants for an org (403 on cross-org unless default) |
 
 Example response from `/v1/assets/{id}/score`:
 
@@ -154,6 +157,23 @@ uv run python scripts/manage_keys.py revoke --id 1
 
 Keys are stored hashed (PBKDF2-HMAC-SHA256) — the plaintext is shown only once.
 `/health`, `/metrics`, `/docs` remain unauthenticated by design.
+
+## Multi-Tenant (org → plant → asset)
+
+Every asset, alert, and score belongs to an org. When API key auth is enabled,
+requests are scoped to the key's org — tenant A cannot see tenant B's data.
+
+```bash
+# Create orgs + plants (via API or repository)
+# Create a key for an org:
+uv run python scripts/manage_keys.py create --name plant-1 --org acme
+
+# With auth enabled, all /v1/* calls are scoped to the key's org.
+# Cross-org access returns 403.
+```
+
+In dev mode (auth off), the default org is `"default"` and cross-org reads are
+allowed for convenience.
 
 ## Quick Start
 

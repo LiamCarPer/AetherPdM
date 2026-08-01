@@ -4,7 +4,11 @@ FastAPI application for AetherPdM.
 Endpoints:
   POST /v1/assets/{asset_id}/score  — Score a vibration waveform, persist alert
   GET  /v1/alerts                   — List recent alerts from DB
-  GET  /v1/assets                   — List registered assets
+  GET  /v1/assets                   — List registered assets (tenant-scoped)
+  GET  /v1/assets/{asset_id}        — Get asset detail by ID (tenant-scoped)
+  GET  /v1/orgs                     — List organizations
+  GET  /v1/orgs/{org_id}/assets     — List assets for an org (cross-org: 403 unless default)
+  GET  /v1/orgs/{org_id}/plants     — List plants for an org (cross-org: 403 unless default)
   GET  /health                      — Health check
 """
 
@@ -32,7 +36,13 @@ from aether_pdm.db.repository import (
 from aether_pdm.db.repository import (
     list_assets as db_list_assets,
 )
-from aether_pdm.serve.auth import require_api_key
+from aether_pdm.db.repository import (
+    list_organizations as db_list_organizations,
+)
+from aether_pdm.db.repository import (
+    list_plants as db_list_plants,
+)
+from aether_pdm.serve.auth import DEFAULT_ORG, Tenant, require_api_key
 from aether_pdm.serve.inference import InferenceEngine
 from aether_pdm.serve.metrics import (
     ALERTS_TOTAL,
@@ -128,6 +138,23 @@ class AssetRecord(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OrgRecord(BaseModel):
+    org_id: str
+    name: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PlantRecord(BaseModel):
+    plant_id: str
+    org_id: str
+    name: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class HealthResponse(BaseModel):
     status: str = "ok"
     version: str = "0.1.0"
@@ -159,25 +186,26 @@ async def metrics():
     return Response(content=body, media_type=content_type)
 
 
-@app.get("/v1/assets", response_model=list[AssetRecord], dependencies=[Depends(require_api_key)])
-async def list_assets(db: DbDep):
-    return db_list_assets(db)
+@app.get("/v1/assets", response_model=list[AssetRecord])
+async def list_assets(db: DbDep, tenant: Tenant = Depends(require_api_key)):
+    return db_list_assets(db, org=tenant.org)
 
 
-@app.get("/v1/assets/{asset_id}", dependencies=[Depends(require_api_key)])
-async def get_asset_endpoint(asset_id: str, db: DbDep):
-    asset = get_asset(db, asset_id)
+@app.get("/v1/assets/{asset_id}", response_model=AssetRecord)
+async def get_asset_endpoint(asset_id: str, db: DbDep, tenant: Tenant = Depends(require_api_key)):
+    asset = get_asset(db, asset_id, org=tenant.org)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     return AssetRecord.model_validate(asset)
 
 
-@app.post(
-    "/v1/assets/{asset_id}/score",
-    response_model=ScoreResponse,
-    dependencies=[Depends(require_api_key)],
-)
-async def score_asset(asset_id: str, request: ScoreRequest, db: DbDep):
+@app.post("/v1/assets/{asset_id}/score", response_model=ScoreResponse)
+async def score_asset(
+    asset_id: str,
+    request: ScoreRequest,
+    db: DbDep,
+    tenant: Tenant = Depends(require_api_key),
+):
     n = len(request.waveform)
     if n == 0:
         raise HTTPException(status_code=400, detail="Empty waveform")
@@ -222,8 +250,16 @@ async def score_asset(asset_id: str, request: ScoreRequest, db: DbDep):
         fault_class=result.get("fault", {}).get("class") if alert["level"] != "healthy" else None,
     )
 
-    # Upsert asset metadata
-    upsert_asset(db, asset_id)
+    # Upsert asset metadata (org scoping lives on the asset row). Real tenants
+    # may only claim assets that already belong to them; attempting to score a
+    # foreign asset is rejected with 403 before ownership is rewritten. In dev
+    # mode (DEFAULT_ORG tenant) the guard is skipped so cross-org upserts keep
+    # working as a convenience.
+    expected = None if tenant.org == DEFAULT_ORG else tenant.org
+    try:
+        upsert_asset(db, asset_id, expected_org=expected, org=tenant.org)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
     return ScoreResponse(
         asset_id=asset_id,
@@ -237,11 +273,31 @@ async def score_asset(asset_id: str, request: ScoreRequest, db: DbDep):
     )
 
 
-@app.get("/v1/alerts", response_model=list[AlertRecord], dependencies=[Depends(require_api_key)])
+@app.get("/v1/alerts", response_model=list[AlertRecord])
 async def list_alerts(
     db: DbDep,
+    tenant: Tenant = Depends(require_api_key),
     asset_id: str | None = None,
     level: str | None = None,
     limit: int = 50,
 ):
-    return db_list_alerts(db, asset_id=asset_id, level=level, limit=limit)
+    return db_list_alerts(db, asset_id=asset_id, level=level, limit=limit, org=tenant.org)
+
+
+@app.get("/v1/orgs", response_model=list[OrgRecord])
+async def list_orgs(db: DbDep, tenant: Tenant = Depends(require_api_key)):
+    return db_list_organizations(db)
+
+
+@app.get("/v1/orgs/{org_id}/assets", response_model=list[AssetRecord])
+async def list_org_assets(org_id: str, db: DbDep, tenant: Tenant = Depends(require_api_key)):
+    if tenant.org != org_id and tenant.org != DEFAULT_ORG:
+        raise HTTPException(status_code=403, detail="Cannot access another org's assets")
+    return db_list_assets(db, org=org_id)
+
+
+@app.get("/v1/orgs/{org_id}/plants", response_model=list[PlantRecord])
+async def list_org_plants(org_id: str, db: DbDep, tenant: Tenant = Depends(require_api_key)):
+    if tenant.org != org_id and tenant.org != DEFAULT_ORG:
+        raise HTTPException(status_code=403, detail="Cannot access another org's plants")
+    return db_list_plants(db, org_id=org_id)

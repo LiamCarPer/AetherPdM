@@ -11,6 +11,25 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    org_id = Column(String(100), unique=True, nullable=False, index=True)  # "acme"
+    name = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=_now)
+
+
+class Plant(Base):
+    __tablename__ = "plants"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    plant_id = Column(String(100), unique=True, nullable=False, index=True)  # "plant-1"
+    org_id = Column(String(100), nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=_now)
+
+
 class Asset(Base):
     __tablename__ = "assets"
 

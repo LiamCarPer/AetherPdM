@@ -17,6 +17,7 @@ from collections.abc import Generator
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from aether_pdm.db.database import get_session
@@ -24,6 +25,22 @@ from aether_pdm.db.repository import get_api_key_by_prefix
 
 KEY_PREFIX_LEN = 8
 KEY_SECRET_LEN = 24  # raw random bytes -> 48-char hex secret
+
+DEFAULT_ORG = "default"
+
+
+class Tenant(BaseModel):
+    """Authenticated tenant context (org + key name)."""
+
+    org: str
+    key_name: str | None
+
+    model_config = {"frozen": True}
+
+
+def default_tenant() -> Tenant:
+    """Tenant used when auth is disabled (dev mode)."""
+    return Tenant(org=DEFAULT_ORG, key_name=None)
 
 
 def auth_enabled() -> bool:
@@ -95,22 +112,23 @@ def _get_db() -> Generator[Session, None, None]:
 async def require_api_key(
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
     db: Session = Depends(_get_db),
-) -> str | None:
+) -> Tenant:
     """
     FastAPI dependency: validate the X-API-Key header.
 
-    - If auth disabled: return None (allow).
-    - If auth enabled and header present: verify prefix + hash.
+    - If auth disabled: return ``default_tenant()`` (org "default", dev mode).
+    - If auth enabled and header present: verify prefix + hash and return the
+      tenant context derived from the API key record (org + key name).
     - If auth enabled and header missing/invalid: raise 401.
 
     Async so DB lookups run on the event loop (matching the async endpoints);
     a plain sync dependency would execute in a worker thread, which breaks
     in-memory SQLite test setups that rely on per-thread connections.
 
-    Returns the key name (or None) for downstream use / logging.
+    Returns the tenant (org + key name) for downstream scoping / logging.
     """
     if not auth_enabled():
-        return None
+        return default_tenant()
 
     if not x_api_key:
         raise HTTPException(
@@ -133,4 +151,4 @@ async def require_api_key(
     if not verify_api_key_hash(secret, record.key_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
 
-    return record.name
+    return Tenant(org=record.org, key_name=record.name)

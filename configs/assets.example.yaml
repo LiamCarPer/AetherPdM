@@ -1,6 +1,9 @@
 # AetherPdM asset registry config
 # Copy to assets.yaml and fill with your asset topology.
 
+# --- Hierarchical config (org -> plant -> asset) ---
+# This mirrors the multi-tenant hierarchy persisted to the DB.
+
 org: "acme-corp"
 plants:
   - name: "plant-frankfurt"
@@ -36,3 +39,12 @@ plants:
         load_nominal: 0.0
         sampling_rate: 12000
         anomaly_threshold: 0.80
+
+# --- Flat DB-style config (as persisted in the `assets` table) ---
+# Each asset row carries `org` (tenant) and `plant` (plant within the org).
+assets:
+  - asset_id: "motor-001"
+    org: "acme"          # tenant (organization) owning this asset
+    plant: "plant-1"     # plant within the org
+    asset_type: "motor"
+    rpm_nominal: 1772
