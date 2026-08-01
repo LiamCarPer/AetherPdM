@@ -27,9 +27,10 @@ Sleep 3s
 Ctrl+L
 
 # 2. Show the domain shift study (the wow moment)
-# Note: --cwru-features follows the documented CWRU convention
-# (data/interim/cwru/features_v1.parquet) per scripts/run_domain_shift.py.
-Type "uv run python scripts/run_domain_shift.py --cwru-features data/interim/cwru/features_v1.parquet --paderborn-features data/interim/paderborn/features_v1.parquet --output reports/domain-shift-cwru-to-paderborn.md"
+# Note: --cwru-features uses the ACTUAL repo path where the CWRU features
+# live (data/interim/features/features_v1.parquet) — the same path the
+# ops pipeline references. A local render needs both parquet files to exist.
+Type "uv run python scripts/run_domain_shift.py --cwru-features data/interim/features/features_v1.parquet --paderborn-features data/interim/paderborn/features_v1.parquet --output reports/domain-shift-cwru-to-paderborn.md"
 Enter
 Sleep 4s
 Ctrl+L
