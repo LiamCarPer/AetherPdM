@@ -248,9 +248,15 @@ curl -X POST http://localhost:8000/v1/assets/motor-001/score \
 
 Scripted terminal recordings (Charmbracelet VHS) of the key workflows:
 
-- **Ops Loop**: batch scoring → drift detection → CWRU→Paderborn domain shift
-- **Secure API**: API key creation → 401 → authorized scoring
+**Autonomous Ops Loop** — batch scoring, drift detection, and the CWRU → Paderborn domain shift study:
 
+![Ops Loop demo](docs/demo/ops-loop.gif)
+
+**Secure API** — org-scoped API key creation, 401 without a key, authorized scoring:
+
+![Secure API demo](docs/demo/api.gif)
+
+GIFs are committed to the repo and refreshed by the `Demo GIFs` workflow.
 Render locally (Linux/macOS): `vhs docs/demo/ops-loop.tape`
 See `docs/demo/README.md` for details.
 

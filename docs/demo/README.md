@@ -41,6 +41,18 @@ available — the tapes are honest recordings, not mocks.
 Push to main (or run the `demo` workflow manually): `.github/workflows/demo.yml`
 renders the tapes and uploads the GIFs as artifacts.
 
+**GIFs are committed to the repo** — the workflow renders the tapes and then
+commits the resulting `docs/demo/*.gif` files back (github-actions bot identity)
+whenever the `.tape` files change, or on manual `workflow_dispatch`. Because the
+GIFs are tracked in git, they:
+
+- render in the root `README.md` via stable relative links (`docs/demo/ops-loop.gif`), and
+- never expire (Actions artifacts expire after ~90 days).
+
+The artifact upload still exists as a backup, but the repo GIFs are the source
+of truth for the README. On a fresh clone the GIFs are already present (they're
+in git) — there is no need to render locally unless you are editing a tape.
+
 Honest note on CI vs local rendering: the CI runner installs the repo deps
 (`uv sync --extra dev --extra web`) so the commands at least attempt, but the
 runner does **not** have trained models, feature parquet files, or a running

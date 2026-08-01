@@ -6,6 +6,11 @@ on:
     paths:
       - 'docs/demo/*.tape'    # re-render when tapes change
 
+# Explicit workflow-level permission so the commit-back step's `git push`
+# deterministically gets contents:write regardless of repo-default settings.
+permissions:
+  contents: write
+
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -44,7 +49,40 @@ jobs:
           vhs docs/demo/api.tape
 
       - name: Upload GIFs
+        # Belt-and-suspenders backup: artifacts expire after ~90 days, so
+        # the commit-back step below is the primary persistence mechanism.
         uses: actions/upload-artifact@v4
         with:
           name: demo-gifs
           path: docs/demo/*.gif
+
+      - name: Commit rendered GIFs
+        # Persist the GIFs in the repo so they can be embedded in the README
+        # via stable relative links (docs/demo/*.gif) instead of expiring
+        # Actions artifacts. actions/checkout@v4 persists the GITHUB_TOKEN
+        # by default, giving us content:write on the current branch (main for
+        # workflow_dispatch, the pushed branch for path-filtered pushes).
+        #
+        # Re-trigger prevention note: GitHub Actions does NOT honor `[skip ci]`
+        # (that's GitLab/CircleCI). The `[skip ci]` token in the message is kept
+        # because it is harmless, but the sole re-trigger prevention is the path
+        # filter (`push.paths: docs/demo/*.tape`): a push that only touches the
+        # GIF files does not match the filter, so this workflow is not re-run.
+        #
+        # `git add docs/demo/*.gif` with NO matching GIFs exits 128 (unmatched
+        # pathspec) — under `bash -e` that would fail the step. Guard with an
+        # existence check so a render-skip never kills the job.
+        run: |
+          if ls docs/demo/*.gif >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/demo/*.gif
+            if git diff --cached --quiet; then
+              echo "No GIF changes to commit."
+            else
+              git commit -m "docs(demo): refresh VHS demo GIFs [skip ci]"
+              git push
+            fi
+          else
+            echo "No GIFs produced; skipping commit."
+          fi
