@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "AetherPdM"
+    orgId: 1
+    folder: "AetherPdM"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -75,6 +75,21 @@ to different machines, loads, or operating conditions.
 | Observability | Prometheus metrics endpoint |
 | UI | Streamlit ops dashboard (TBD) |
 
+## Observability
+
+Prometheus metrics are exposed at `/metrics` (port 8000):
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `aetherpdm_http_requests_total` | Counter | Requests by method/endpoint/status |
+| `aetherpdm_http_request_duration_seconds` | Histogram | Request latency |
+| `aetherpdm_predictions_total` | Counter | Predictions by fault class |
+| `aetherpdm_alerts_total` | Counter | Alerts by level |
+| `aetherpdm_health_score` | Gauge | Latest health score per asset |
+| `aetherpdm_model_version` | Gauge | Loaded model versions |
+
+Grafana dashboard at http://localhost:3000 (admin/admin).
+
 ## What's Inside
 
 | Component | File | Purpose |

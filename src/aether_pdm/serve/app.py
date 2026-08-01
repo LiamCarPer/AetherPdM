@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -33,6 +33,14 @@ from aether_pdm.db.repository import (
     list_assets as db_list_assets,
 )
 from aether_pdm.serve.inference import InferenceEngine
+from aether_pdm.serve.metrics import (
+    ALERTS_TOTAL,
+    HEALTH_SCORE_GAUGE,
+    MODEL_VERSION,
+    PREDICTIONS_TOTAL,
+    PrometheusMiddleware,
+    metrics_response,
+)
 
 
 @asynccontextmanager
@@ -47,6 +55,8 @@ app = FastAPI(
     description="Predictive maintenance scoring API for rotating equipment",
     lifespan=lifespan,
 )
+
+app.add_middleware(PrometheusMiddleware)
 
 # --- Inference engine (lazy-loaded) ---
 
@@ -142,6 +152,12 @@ async def health():
     return HealthResponse()
 
 
+@app.get("/metrics", include_in_schema=False)
+async def metrics():
+    body, content_type = metrics_response()
+    return Response(content=body, media_type=content_type)
+
+
 @app.get("/v1/assets", response_model=list[AssetRecord])
 async def list_assets(db: DbDep):
     return db_list_assets(db)
@@ -170,6 +186,22 @@ async def score_asset(asset_id: str, request: ScoreRequest, db: DbDep):
         )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+    # Prometheus business metrics (only on successful scoring)
+    fault_class = result.get("fault", {}).get("class", "unknown")
+    PREDICTIONS_TOTAL.labels(**{"class": fault_class}).inc()
+    alert_level = result["alert"]["level"]
+    ALERTS_TOTAL.labels(level=alert_level).inc()
+    HEALTH_SCORE_GAUGE.labels(asset_id=asset_id).set(float(result["health_score"]))
+    for model_name, version in result["model_versions"].items():
+        try:
+            numeric_version = float(version)
+        except (ValueError, TypeError):
+            # `labels()` registers the child series at 0.0 BEFORE set(); calling
+            # it before conversion would export a misleading "model version 0"
+            # sample for semver strings like "v1.2.3-beta". Skip entirely.
+            continue
+        MODEL_VERSION.labels(model_name=model_name).set(numeric_version)
 
     # Persist score
     record = save_score(db, asset_id, result)

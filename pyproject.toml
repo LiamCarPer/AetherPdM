@@ -27,6 +27,7 @@ dependencies = [
     "httpx>=0.28",
     "python-multipart>=0.0.14",
     "pytest-asyncio[dev]>=1.4.0",
+    "prometheus-client>=0.21",
 ]
 
 [project.optional-dependencies]
