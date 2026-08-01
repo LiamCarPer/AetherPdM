@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -105,6 +103,30 @@ services:
       --calibrate
     profiles:
       - train
+
+  batch:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.train
+    # Dockerfile.train's ENTRYPOINT runs aether_pdm.models.train; the
+    # scheduler needs a different module, so override it here.
+    entrypoint: ["python", "-m", "aether_pdm.ops.scheduler"]
+    environment:
+      AETHER_MLFLOW_TRACKING_URI: http://mlflow:5000
+      AETHER_DB_URL: postgresql://aether:aether-dev@postgres:5432/aether_pdm
+      AETHER_BATCH_ORG: ${AETHER_BATCH_ORG:-default}
+    volumes:
+      - data:/app/data
+    depends_on:
+      mlflow:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    command: >
+      --features /app/data/interim/features/features_v1.parquet
+      --org ${AETHER_BATCH_ORG:-default}
+    profiles:
+      - batch
 
   prometheus:
     image: prom/prometheus:latest

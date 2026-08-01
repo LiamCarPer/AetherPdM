@@ -192,6 +192,25 @@ uv run python scripts/run_batch_scorer.py --org acme --hysteresis 3 --cooldown-m
 Scores are persisted to `score_records`; alerts to `alerts` (visible via the
 dashboard and `GET /v1/alerts`).
 
+## Scheduling (Autonomous Ops Loop)
+
+Run the full ops loop on a schedule: batch score → drift check → retrain → promote.
+
+```bash
+# Manual run
+uv run python scripts/run_ops_pipeline.py --features data/interim/features/features_v1.parquet --org acme
+
+# Cron (every 30 min)
+*/30 * * * * cd /path/to/AetherPdM && uv run python scripts/run_ops_pipeline.py \
+  --features data/interim/features/features_v1.parquet --org acme
+
+# Docker (manual, profile-gated)
+docker compose -f infra/docker/docker-compose.yml --profile batch run batch
+```
+
+The pipeline exits 0 on success, non-zero on failure — cron-safe.
+See [docs/scheduling.md](docs/scheduling.md) for cron + Docker scheduling details.
+
 ## Quick Start
 
 ```bash
