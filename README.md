@@ -175,6 +175,23 @@ uv run python scripts/manage_keys.py create --name plant-1 --org acme
 In dev mode (auth off), the default org is `"default"` and cross-org reads are
 allowed for convenience.
 
+## Batch Scoring + Alert Rules
+
+Score all assets on a schedule with production alert rules:
+
+| Rule | Default | Purpose |
+|------|---------|---------|
+| **Hysteresis** | 3 consecutive non-healthy | Suppress transient blips |
+| **Cooldown** | 30 min same asset+level | Prevent alert fatigue |
+
+```bash
+# Score all assets (org-scoped)
+uv run python scripts/run_batch_scorer.py --org acme --hysteresis 3 --cooldown-min 30
+```
+
+Scores are persisted to `score_records`; alerts to `alerts` (visible via the
+dashboard and `GET /v1/alerts`).
+
 ## Quick Start
 
 ```bash
