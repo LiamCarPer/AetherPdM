@@ -74,7 +74,7 @@ to different machines, loads, or operating conditions.
 | Storage | MinIO (S3-compatible) |
 | Containers | Docker Compose |
 | Observability | Prometheus metrics endpoint |
-| UI | Streamlit ops dashboard (TBD) |
+| UI | Streamlit ops dashboard (`web/`) |
 
 ## Observability
 
@@ -306,8 +306,10 @@ aether-pdm/
 
 - **Vertical**: bearings and rotating equipment only (see ADR-001)
 - **Algorithms**: scikit-learn based (not deep learning unless it clearly outperforms)
-- **RUL**: light severity scoring, not full remaining-useful-life prediction (Fase 2)
+- **RUL**: health/severity scoring only — no remaining-useful-life time-to-failure prediction
 - **Cloud**: not deployed; runs locally via Docker Compose (cloud target: Azure/AWS TBD)
+- **Demo data**: CWRU + synthetic for MVP; Paderborn for domain-shift analysis. Production
+  validation on real plant data is the next required step before field deployment.
 
 ## Model Release Contract (GatedOps)
 
