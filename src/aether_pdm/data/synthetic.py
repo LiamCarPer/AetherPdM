@@ -75,8 +75,23 @@ def generate_dataset(
     n_faulty: int = 30,
     length: int = 4096,
     seed: int = 42,
+    n_val_normal: int = 3,
+    n_val_faulty: int = 5,
+    n_test_faulty: int = 5,
 ) -> Path:
-    """Generate a full synthetic dataset with metadata and waveforms."""
+    """Generate a full synthetic dataset with metadata and waveforms.
+
+    Split assignment is deterministic and index-based (no extra RNG draws):
+      - Normal rows: first ``n_val_normal`` -> ``"val"``, remainder -> ``"train"``.
+      - Faulty rows: first ``n_test_faulty`` -> ``"test"``, next
+        ``n_val_faulty`` -> ``"val"``, remainder -> ``"train"``.
+
+    This guarantees a ``val`` split containing BOTH normal and faulty samples,
+    which the promotion gate (``aether_pdm.ops.promote``, ``DEFAULT_SPLIT="val"``)
+    requires for anomaly and fault candidate evaluation. Counts are clamped to
+    the available row counts so tiny datasets degrade gracefully instead of
+    producing empty splits.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
 
     rng = np.random.default_rng(seed)
@@ -85,6 +100,11 @@ def generate_dataset(
     fault_types = ["inner_race", "outer_race", "ball"]
     severities = [0.007, 0.014, 0.021]
     loads = [0, 1, 2, 3]
+
+    # Clamp so small datasets never produce empty/negative split ranges.
+    n_val_normal = min(n_val_normal, n_normal)
+    n_test_faulty = min(n_test_faulty, n_faulty)
+    n_val_faulty = min(n_val_faulty, n_faulty - n_test_faulty)
 
     for i in range(n_normal):
         load = rng.choice(loads)
@@ -105,7 +125,7 @@ def generate_dataset(
             "fault_type": "normal",
             "fault_diameter": 0.0,
             "severity": "none",
-            "split": "train",
+            "split": "val" if i < n_val_normal else "train",
             "waveform": waveform.tolist(),
         })
 
@@ -121,7 +141,12 @@ def generate_dataset(
             fault_diameter=sev,
             seed=seed + n_normal + i,
         )
-        split = "test" if i < 5 else "train"
+        if i < n_test_faulty:
+            split = "test"
+        elif i < n_test_faulty + n_val_faulty:
+            split = "val"
+        else:
+            split = "train"
         rows.append({
             "asset_id": f"synth-{n_normal + i:04d}",
             "file_id": f"synth-{ft}-{i:04d}",
@@ -142,6 +167,7 @@ def generate_dataset(
     print(f"Generated {len(df)} synthetic waveforms -> {output_path}")
     print(f"  Normal: {n_normal}, Faulty: {n_faulty}")
     print(f"  Distribution:\n{df['fault_type'].value_counts().to_string()}")
+    print(f"  Split distribution:\n{df['split'].value_counts().to_string()}")
     return output_path
 
 
@@ -152,9 +178,21 @@ def main() -> None:
     parser.add_argument("--n-faulty", type=int, default=30)
     parser.add_argument("--length", type=int, default=4096)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--n-val-normal", type=int, default=3)
+    parser.add_argument("--n-val-faulty", type=int, default=5)
+    parser.add_argument("--n-test-faulty", type=int, default=5)
     args = parser.parse_args()
 
-    generate_dataset(args.output, args.n_normal, args.n_faulty, args.length, args.seed)
+    generate_dataset(
+        args.output,
+        args.n_normal,
+        args.n_faulty,
+        args.length,
+        args.seed,
+        args.n_val_normal,
+        args.n_val_faulty,
+        args.n_test_faulty,
+    )
 
 
 if __name__ == "__main__":

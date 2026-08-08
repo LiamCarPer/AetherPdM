@@ -18,7 +18,9 @@ def test_synthetic_waveform_shape():
 def test_synthetic_waveform_normal():
     """Normal waveform should have lower RMS than inner_race fault."""
     normal = synthetic_waveform(length=4096, rpm=1772, fault_type="normal", seed=42)
-    faulty = synthetic_waveform(length=4096, rpm=1772, fault_type="inner_race", fault_diameter=0.021, seed=42)
+    faulty = synthetic_waveform(
+        length=4096, rpm=1772, fault_type="inner_race", fault_diameter=0.021, seed=42
+    )
     assert np.std(faulty) > np.std(normal)
 
 
@@ -38,3 +40,28 @@ def test_generate_dataset_structure():
     assert "fault_type" in df.columns
     assert "split" in df.columns
     assert "severity" in df.columns
+
+
+def test_generate_dataset_has_val_split():
+    """Val split should exist and contain BOTH normal and faulty samples."""
+    result = generate_dataset(
+        Path("data/interim/test_synthetic_val"),
+        n_normal=10,
+        n_faulty=12,
+        seed=42,
+    )
+    df = pd.read_parquet(result)
+    val = df[df["split"] == "val"]
+    assert not val.empty, "generate_dataset should emit a 'val' split"
+    assert (val["fault_type"] == "normal").any(), "val split should hold normal samples"
+    assert (val["fault_type"] != "normal").any(), "val split should hold faulty samples"
+
+    # Deterministic split assignment: first n_val_normal normal rows are val,
+    # first n_test_faulty faulty rows are test, next n_val_faulty are val.
+    normal_rows = df[df["fault_type"] == "normal"]
+    faulty_rows = df[df["fault_type"] != "normal"]
+    assert set(normal_rows.iloc[:3]["split"]) == {"val"}
+    assert set(normal_rows.iloc[3:]["split"]) == {"train"}
+    assert set(faulty_rows.iloc[:5]["split"]) == {"test"}
+    assert set(faulty_rows.iloc[5:10]["split"]) == {"val"}
+    assert set(faulty_rows.iloc[10:]["split"]) == {"train"}

@@ -101,6 +101,34 @@ CHANNELS = {
 # These are the most severe faults — harder to generalize to
 TEST_FILES: set[str] = {"125", "126", "127", "128"}
 
+# File-level validation split (disjoint from TEST_FILES).
+# Moderate-severity (0.014") faults + healthy baselines, so the val set
+# contains both normal and fault samples for the promotion gate
+# (ops/promote.py evaluates DEFAULT_SPLIT="val").
+#   "97","98"   -> normal
+#   "109","110" -> inner_race 0.014
+#   "121","122" -> ball 0.014
+#   "133","134" -> outer_race 0.014
+VAL_FILES: set[str] = {"97", "98", "109", "110", "121", "122", "133", "134"}
+
+
+def _validate_split_sets() -> None:
+    """Fail fast if a split set references an unknown catalog id or overlaps."""
+    catalog_ids = {fid for fid, _, _, _ in CWRU_CATALOG}
+    unknown = (TEST_FILES | VAL_FILES) - catalog_ids
+    if unknown:
+        raise ValueError(
+            f"Split sets reference unknown CWRU catalog ids: {sorted(unknown)}"
+        )
+    overlap = TEST_FILES & VAL_FILES
+    if overlap:
+        raise ValueError(
+            f"TEST_FILES and VAL_FILES must be disjoint, got {sorted(overlap)}"
+        )
+
+
+_validate_split_sets()
+
 
 def _build_catalog() -> dict[str, tuple[str, float, str]]:
     """Build lookup: file_id → (fault_type, fault_diameter, location)."""
@@ -125,6 +153,8 @@ def determine_split(file_id: str) -> str:
     """Assign split based on file_id to prevent leakage."""
     if file_id in TEST_FILES:
         return "test"
+    if file_id in VAL_FILES:
+        return "val"
     return "train"
 
 

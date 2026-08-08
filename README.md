@@ -27,6 +27,19 @@ to different machines, loads, or operating conditions.
 - Serve via REST API with model versioning and lineage
 - Persist alerts with explanations for operator review
 
+## Fresh-Clone Demo (no download, no Docker)
+
+```bash
+uv sync
+uv run python scripts/bootstrap_demo.py
+# then in another terminal:
+uv run uvicorn aether_pdm.serve.app:app --port 8000
+# and run the printed curl.
+```
+
+Generates synthetic bearing data → features → trains + promotes models via the
+GatedOps gate → prints a ready-to-run scoring curl. Deterministic (fixed seeds).
+
 ## Architecture
 
 ```
@@ -329,6 +342,10 @@ promotes GatedOps' reference models:
 - The scoring API echoes that lineage in every `/score` response.
 
 One contract promotes a churn demo model and a bearing fault classifier.
+
+**Dependency direction is intentional and one-way:** AetherPdM depends on
+GatedOps (the platform) and is its canonical consumer — proving the gate engine
+works in a real vertical. GatedOps never depends on AetherPdM.
 
 ## Development Note
 

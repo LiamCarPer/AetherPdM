@@ -32,3 +32,34 @@ jobs:
 
       - name: Run smoke test
         run: uv run pytest tests/test_training_smoke.py -v --cov=src/aether_pdm --cov-append --cov-report=term
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose config
+        run: docker compose -f infra/docker/docker-compose.yml config --quiet
+
+      - name: Build API image
+        run: docker compose -f infra/docker/docker-compose.yml build api
+
+      - name: Boot core stack (postgres + minio + mlflow + api)
+        run: |
+          docker compose -f infra/docker/docker-compose.yml up -d postgres minio mlflow api
+          # wait for API /health (entrypoint waits for MLflow, then starts uvicorn)
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8000/health >/dev/null 2>&1; then
+              echo "API healthy after ${i} attempts"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "API did not become healthy in time"
+          docker compose -f infra/docker/docker-compose.yml logs api
+          exit 1
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f infra/docker/docker-compose.yml down -v

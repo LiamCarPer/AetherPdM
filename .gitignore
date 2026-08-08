@@ -18,6 +18,10 @@ data/interim/
 data/aether_pdm.db
 *.db
 
+# Bootstrap demo artifacts (scripts/bootstrap_demo.py workdirs)
+data/demo_bootstrap/
+data/demo_bootstrap_check/
+
 # MLflow artifacts
 mlruns/
 mlartifacts/

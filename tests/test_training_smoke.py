@@ -67,10 +67,10 @@ def test_training_smoke_full_pipeline(tmp_path: Path) -> None:
     )
 
     # ---- 5. Calibrate (anomaly) ----
-    # The synthetic data doesn't have a val split out of the box.
-    # generate_dataset assigns "train" (all normal + most faulty) and "test" (5 faulty).
-    # Since no "val" split exists, calibrate_anomaly_model would raise.
-    # Skipping calibration — smoke test validates training + inference, which is sufficient.
+    # generate_dataset now emits a "val" split (3 normal + 5 faulty with the
+    # default n_normal=10, n_faulty=10), so calibration COULD run here. It is
+    # intentionally skipped: the smoke test only validates training + inference,
+    # and calibration is covered by test_calibrate.py / the bootstrap demo.
 
     # ---- 6. Inference engine (manual wiring, bypassing MLflow registry) ----
     # We wire the trained models directly into the engine without MLflow loading.

@@ -29,6 +29,7 @@ def train_anomaly(
     mlflow_uri: str | None = None,
     feature_cols: list[str] | None = None,
     split: str | None = None,
+    strict_boundary: bool = False,
 ) -> IsolationForest:
     """
     Train IsolationForest anomaly detector on healthy-only data.
@@ -42,6 +43,16 @@ def train_anomaly(
         When None, all non-meta columns are used.
     split : optional data split filter (e.g. 'train', 'val').
         When set, only rows with matching ``split`` column are used.
+    strict_boundary : bool
+        When True, override the model's decision boundary so that the worst
+        healthy training window scores exactly 0 and every healthy window
+        scores >= 0 (FAR = 0 on the healthy training distribution). This is
+        the correct configuration when training on PURE healthy data:
+        ``contamination`` > 0 would otherwise force ~contamination of the
+        healthy rows below the boundary, guaranteeing a false-alarm floor on
+        any healthy validation set. Fault windows (far outside the healthy
+        hull) still score negative and are flagged. Default False preserves
+        the sklearn default boundary.
     """
     df = pd.read_parquet(features_path)
     if split:
@@ -67,6 +78,13 @@ def train_anomaly(
     )
     model.fit(x_train)
 
+    if strict_boundary:
+        # decision_function(X) = score_samples(X) - offset_. Setting offset_ to
+        # the minimum healthy score puts the boundary at the worst healthy
+        # window: all healthy windows score >= 0, only deviations beyond the
+        # healthy hull (true faults) score negative.
+        model.offset_ = float(np.min(model.score_samples(x_train)))
+
     # Log to MLflow
     mlflow.set_tracking_uri(mlflow_uri or "mlruns")
     with mlflow.start_run(run_name="anomaly_train") as run:
@@ -76,6 +94,7 @@ def train_anomaly(
             "contamination": contamination,
             "random_state": random_state,
             "n_train_samples": len(x_train),
+            "strict_boundary": strict_boundary,
         })
         mlflow.sklearn.log_model(model, "model", registered_model_name="aether-anomaly")
         mlflow.log_artifact(str(features_path), artifact_path="data")
