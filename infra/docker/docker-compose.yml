@@ -34,13 +34,18 @@ services:
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.17.0
+    # The ghcr.io/mlflow/mlflow image is slim: it ships WITHOUT the
+    # psycopg2 PostgreSQL driver, so the server crashes at startup with
+    # "No module named 'psycopg2'" when using a postgresql:// backend store.
+    # Install the driver before launching (compose-smoke CI caught this).
     command: >
+      sh -c "pip install --no-cache-dir psycopg2-binary &&
       mlflow server
       --host 0.0.0.0
       --port 5000
       --backend-store-uri postgresql://aether:aether-dev@postgres:5432/aether_pdm
       --default-artifact-root s3://mlflow-artifacts/
-      --artifacts-destination s3://mlflow-artifacts/
+      --artifacts-destination s3://mlflow-artifacts/"
     ports:
       - "5000:5000"
     environment:
