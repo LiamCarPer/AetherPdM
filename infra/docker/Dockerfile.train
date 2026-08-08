@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 WORKDIR /app
 # git is required by uv to fetch git dependencies (gatedops); ca-certificates
 # for TLS. Single-stage image (no COPY of a prebuilt .venv), so git must
