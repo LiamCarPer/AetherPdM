@@ -57,7 +57,9 @@ jobs:
             sleep 5
           done
           echo "API did not become healthy in time"
-          docker compose -f infra/docker/docker-compose.yml logs api
+          docker compose -f infra/docker/docker-compose.yml logs --no-color mlflow
+          echo "--- api logs ---"
+          docker compose -f infra/docker/docker-compose.yml logs --no-color api
           exit 1
 
       - name: Teardown
