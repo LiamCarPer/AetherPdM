@@ -1,6 +1,11 @@
 # --- Build stage ---
 FROM python:3.12-slim AS builder
 WORKDIR /app
+# git is required by uv to fetch git dependencies (gatedops); ca-certificates
+# for TLS. Runtime stages COPY the built .venv, so git is not needed there.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock* ./
 RUN uv sync --frozen --no-dev --no-install-project
