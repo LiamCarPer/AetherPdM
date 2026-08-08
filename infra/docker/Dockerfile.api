@@ -1,5 +1,5 @@
 # --- Build stage ---
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 WORKDIR /app
 # git is required by uv to fetch git dependencies (gatedops); ca-certificates
 # for TLS. Runtime stages COPY the built .venv, so git is not needed there.
@@ -13,7 +13,7 @@ COPY src/ src/
 RUN uv sync --frozen --no-dev
 
 # --- Runtime stage (api) ---
-FROM python:3.12-slim AS api
+FROM python:3.14-slim AS api
 WORKDIR /app
 RUN groupadd -r aether && useradd -r -g aether aether
 COPY --from=builder /app/.venv /app/.venv
@@ -36,7 +36,7 @@ COPY web/ web/
 RUN uv sync --frozen --no-dev --extra web
 
 # --- Web runtime stage ---
-FROM python:3.12-slim AS web
+FROM python:3.14-slim AS web
 WORKDIR /app
 RUN groupadd -r aether && useradd -r -g aether aether
 ENV PYTHONPATH="/app"
