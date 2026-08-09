@@ -12,8 +12,8 @@ Paderborn target split. Missing models degrade gracefully: the study returns a
 
 Usage (via scripts/run_domain_shift.py):
     python -m aether_pdm.ops.domain_shift \
-        --cwru-features data/interim/cwru/features_v1.parquet \
-        --paderborn-features data/interim/paderborn/features_v1.parquet \
+        --cwru-features data/interim/cwru/features_v2.parquet \
+        --paderborn-features data/interim/paderborn/features_v2.parquet \
         --output reports/domain-shift.md
 """
 

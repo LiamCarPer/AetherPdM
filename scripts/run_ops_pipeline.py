@@ -2,7 +2,7 @@
 
 Usage:
     python scripts/run_ops_pipeline.py \
-        --features data/interim/features/features_v1.parquet --org acme
+        --features data/interim/features/features_v2.parquet --org acme
 """
 
 from aether_pdm.ops.scheduler import main

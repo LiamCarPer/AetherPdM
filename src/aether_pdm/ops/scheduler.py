@@ -26,10 +26,11 @@ from aether_pdm.db.database import get_session, init_db
 from aether_pdm.ops.batch_scorer import BatchScorer
 from aether_pdm.ops.drift import detect_drift
 from aether_pdm.ops.retrain import run_retrain_pipeline
+from aether_pdm.signal.pipeline import FEATURE_VERSION
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_FEATURES_PATH = Path("data/interim/features/features_v1.parquet")
+DEFAULT_FEATURES_PATH = Path(f"data/interim/features/features_{FEATURE_VERSION}.parquet")
 _DEFAULT_HYSTERESIS = 3
 _DEFAULT_COOLDOWN_MIN = 30
 _DEFAULT_DRIFT_THRESHOLD = 0.25
@@ -160,7 +161,7 @@ def main() -> None:
     """CLI entrypoint.
 
     Usage:
-        python -m aether_pdm.ops.scheduler [--features data/interim/features/features_v1.parquet]
+        python -m aether_pdm.ops.scheduler [--features data/interim/features/features_v2.parquet]
             [--org acme] [--mlflow-uri sqlite:///mlflow.db]
             [--hysteresis 3] [--cooldown-min 30] [--no-retrain]
 

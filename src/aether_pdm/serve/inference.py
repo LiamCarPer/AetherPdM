@@ -18,7 +18,7 @@ from aether_pdm.signal.window import sliding_windows
 
 MODEL_ANOMALY = "aether-anomaly"
 MODEL_FAULT = "aether-fault-clf"
-FEATURE_VERSION = "v1"
+FEATURE_VERSION = "v2"
 
 
 _VERSION_ATTRS: dict[str, str] = {

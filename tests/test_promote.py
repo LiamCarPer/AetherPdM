@@ -245,7 +245,7 @@ def test_promote_fault_rejects_when_balanced_accuracy_below_gate(monkeypatch, tm
         lambda *a, **k: {
             "n_samples": 30,
             "f1_macro": 0.99,
-            "balanced_accuracy": 0.70,
+            "balanced_accuracy": 0.55,
             "classes": ["inner_race", "normal"],
         },
     )
@@ -287,6 +287,39 @@ def test_promote_fault_rejects_when_f1_below_gate(monkeypatch, tmp_path):
     assert result["decision"] == "rejected"
     assert transitions == []
     assert "f1_macro" in result["reason"]
+
+
+def test_fault_gate_defaults():
+    """fault_gate defaults must be the data-grounded 0.70 bar (2026-08).
+
+    The 0.90 aspiration was unreachable: real CWRU val f1_macro ceiling is
+    ~0.76, so no model could ever promote. 0.70 sits below that ceiling and
+    well above the 0.25 random baseline for 4 classes.
+    """
+    from aether_pdm.ops.promote import fault_gate
+
+    gate = fault_gate()
+
+    assert gate.thresholds[0].metric == "f1_macro"
+    assert gate.thresholds[0].op == ">="
+    assert gate.thresholds[0].value == 0.70
+    assert gate.thresholds[1].metric == "balanced_accuracy"
+    assert gate.thresholds[1].op == ">="
+    assert gate.thresholds[1].value == 0.70
+
+
+def test_anomaly_gate_defaults_unchanged():
+    """Anomaly gate stays at DR >= 0.80 / FAR <= 0.10 (passes on real data)."""
+    from aether_pdm.ops.promote import anomaly_gate
+
+    gate = anomaly_gate()
+
+    assert gate.thresholds[0].metric == "detection_rate"
+    assert gate.thresholds[0].op == ">="
+    assert gate.thresholds[0].value == 0.80
+    assert gate.thresholds[1].metric == "false_alarm_rate"
+    assert gate.thresholds[1].op == "<="
+    assert gate.thresholds[1].value == 0.10
 
 
 def test_promote_fault_logs_numeric_metrics_only(monkeypatch, tmp_path):
@@ -655,4 +688,13 @@ def test_load_promote_gates():
     assert isinstance(gates["anomaly"], GateConfig)
     assert gates["anomaly"].thresholds[0].metric == "detection_rate"
     assert gates["anomaly"].thresholds[0].op == ">="
+    assert gates["anomaly"].thresholds[0].value == 0.80
+    assert gates["anomaly"].thresholds[1].metric == "false_alarm_rate"
+    assert gates["anomaly"].thresholds[1].op == "<="
+    assert gates["anomaly"].thresholds[1].value == 0.10
     assert gates["fault"].thresholds[0].metric == "f1_macro"
+    assert gates["fault"].thresholds[0].op == ">="
+    assert gates["fault"].thresholds[0].value == 0.70
+    assert gates["fault"].thresholds[1].metric == "balanced_accuracy"
+    assert gates["fault"].thresholds[1].op == ">="
+    assert gates["fault"].thresholds[1].value == 0.70

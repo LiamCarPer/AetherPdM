@@ -13,7 +13,7 @@ from aether_pdm.models.fault import (
     predict_fault_full,
     train_fault_classifier,
 )
-from aether_pdm.signal.pipeline import process_dataset
+from aether_pdm.signal.pipeline import FEATURE_VERSION, process_dataset
 
 
 def _prepare_features(tmp_path: Path, n_normal: int = 5, n_faulty: int = 10) -> Path:
@@ -22,7 +22,7 @@ def _prepare_features(tmp_path: Path, n_normal: int = 5, n_faulty: int = 10) -> 
     feat_dir = tmp_path / "features"
     feat_dir.mkdir()
     result = process_dataset(data_path, output_dir=feat_dir, window_size=1024, overlap=0.5)
-    return feat_dir / "features_v1.parquet"
+    return feat_dir / f"features_{FEATURE_VERSION}.parquet"
 
 
 def test_train_fault_creates_model(tmp_path):

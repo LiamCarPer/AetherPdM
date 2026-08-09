@@ -2,8 +2,8 @@
 
 Usage:
     python scripts/run_domain_shift.py \
-        --cwru-features data/interim/cwru/features_v1.parquet \
-        --paderborn-features data/interim/paderborn/features_v1.parquet \
+        --cwru-features data/interim/cwru/features_v2.parquet \
+        --paderborn-features data/interim/paderborn/features_v2.parquet \
         --output reports/domain-shift-cwru-to-paderborn.md
 """
 
@@ -21,13 +21,13 @@ def main() -> None:
         "--cwru-features",
         type=Path,
         required=True,
-        help="CWRU (source) feature Parquet, e.g. data/interim/cwru/features_v1.parquet",
+        help="CWRU (source) feature Parquet, e.g. data/interim/cwru/features_v2.parquet",
     )
     parser.add_argument(
         "--paderborn-features",
         type=Path,
         required=True,
-        help="Paderborn (target) feature Parquet, e.g. data/interim/paderborn/features_v1.parquet",
+        help="Paderborn (target) feature Parquet, e.g. data/interim/paderborn/features_v2.parquet",
     )
     parser.add_argument(
         "--output",

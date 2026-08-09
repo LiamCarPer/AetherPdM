@@ -29,7 +29,7 @@ from aether_pdm.data.synthetic import generate_dataset, synthetic_waveform
 from aether_pdm.models.anomaly import train_anomaly
 from aether_pdm.models.fault import train_fault_classifier
 from aether_pdm.ops.promote import promote_anomaly, promote_fault
-from aether_pdm.signal.pipeline import process_dataset
+from aether_pdm.signal.pipeline import FEATURE_VERSION, process_dataset
 
 DEFAULT_WORKDIR = Path("data/demo_bootstrap")
 
@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
         feat_dir = workdir / "features"
         feat_dir.mkdir(parents=True, exist_ok=True)
         process_dataset(data_path, output_dir=feat_dir, window_size=2048, overlap=0.5)
-        features_path = feat_dir / "features_v1.parquet"
+        features_path = feat_dir / f"features_{FEATURE_VERSION}.parquet"
 
         # 3. Train anomaly detector (IsolationForest on healthy windows).
         #    strict_boundary=True pins the decision threshold at the worst

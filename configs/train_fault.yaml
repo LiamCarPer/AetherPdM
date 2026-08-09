@@ -18,9 +18,24 @@ features:
   - bpfo_amp
   - bpfi_amp
   - bsf_amp
-  - fft_peak_1
-  - fft_peak_2
-  - fft_peak_3
+  - ftf_amp
+  - envelope_energy
+  - envelope_peak
+  - fft_peak_0_500
+  - fft_peak_500_1000
+  - fft_peak_1000_2000
+  - fft_peak_2000_4000
+  - fft_peak_4000_6000.0
+  # Scale-invariant fault-frequency ratios (feature version v2): which fault
+  # frequency DOMINATES the envelope spectrum, normalized by total envelope
+  # energy. Invariant to absolute vibration level (load/severity).
+  - bpfo_ratio
+  - bpfi_ratio
+  - bsf_ratio
+  - ftf_ratio
+  - bpfi_over_bpfo
+  - bsf_over_bpfo
+  - bpfi_over_bsf
 
 data:
   source: "cwru"

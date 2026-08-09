@@ -117,14 +117,15 @@ CHANNELS = {
 TEST_FILES: set[str] = {"222", "223", "224", "225"}
 
 # File-level validation split (disjoint from TEST_FILES).
-# Moderate-severity (0.014") faults + healthy baselines, so the val set
-# contains both normal and fault samples for the promotion gate
+# Severity-representative by design: each fault type spans the severity axis
+# (incipient 0.007 / moderate 0.014 / severe 0.021) so the val set measures
+# fault-TYPE discrimination across severities, not a severity corner case
 # (ops/promote.py evaluates DEFAULT_SPLIT="val").
-#   "97","98"   -> normal
-#   "109","110" -> inner_race 0.014
-#   "121","122" -> ball 0.014
-#   "197","198" -> outer_race 0.014
-VAL_FILES: set[str] = {"97", "98", "109", "110", "121", "122", "197", "198"}
+#   "97","98"   -> normal               (0.000, 0.000)
+#   "105","209" -> inner_race           (0.007, 0.021)
+#   "118","121" -> ball                 (0.007, 0.014; 0.021 held out in TEST)
+#   "130","234" -> outer_race           (0.007, 0.021)
+VAL_FILES: set[str] = {"97", "98", "105", "209", "118", "121", "130", "234"}
 
 
 def _validate_split_sets() -> None:

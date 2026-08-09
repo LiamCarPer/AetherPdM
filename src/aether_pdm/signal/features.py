@@ -127,4 +127,25 @@ def compute_all_features(
                 idx_h = np.argmin(np.abs(fft_freqs - freq * h))
                 feats[f"{name}_h{h}_amp"] = float(env_spec[idx_h])
 
+        # Scale-invariant fault-frequency ratios: which fault frequency DOMINATES
+        # the envelope spectrum, normalized by total envelope energy. These are
+        # invariant to absolute vibration level (load/severity) and discriminate
+        # fault TYPE, not just fault severity.
+        eps = 1e-12
+        env_energy = feats["envelope_energy"] + eps
+
+        # Fraction of envelope energy at each fault family (fundamental + harmonics)
+        for name in ("bpfo", "bpfi", "bsf", "ftf"):
+            family_energy = (
+                feats[f"{name}_amp"] ** 2
+                + feats.get(f"{name}_h2_amp", 0.0) ** 2
+                + feats.get(f"{name}_h3_amp", 0.0) ** 2
+            )
+            feats[f"{name}_ratio"] = float(family_energy / env_energy)
+
+        # Pairwise dominance: which fault family dominates relative to the others
+        feats["bpfi_over_bpfo"] = float(feats["bpfi_amp"] / (feats["bpfo_amp"] + eps))
+        feats["bsf_over_bpfo"] = float(feats["bsf_amp"] / (feats["bpfo_amp"] + eps))
+        feats["bpfi_over_bsf"] = float(feats["bpfi_amp"] / (feats["bsf_amp"] + eps))
+
     return feats

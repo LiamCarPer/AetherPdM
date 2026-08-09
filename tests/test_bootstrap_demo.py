@@ -19,6 +19,7 @@ def test_bootstrap_demo_smoke(tmp_path: Path, capsys) -> None:
     strict one-class boundary to separate the val faults (the promotion gate
     requires DR >= 0.80 AND FAR <= 0.10 on the val split).
     """
+    from aether_pdm.signal.pipeline import FEATURE_VERSION
     from scripts import bootstrap_demo
 
     workdir = tmp_path / "demo"
@@ -40,7 +41,7 @@ def test_bootstrap_demo_smoke(tmp_path: Path, capsys) -> None:
     assert "promoted" in out
 
     # The demo must leave trainable artifacts behind in the workdir.
-    features = workdir / "features" / "features_v1.parquet"
+    features = workdir / "features" / f"features_{FEATURE_VERSION}.parquet"
     assert features.exists(), "bootstrap should produce a features parquet"
     # The MLflow sqlite store lands at the URI location (tmp_path/mlflow_test.db),
     # not necessarily inside the workdir — assert the one we passed exists.

@@ -88,8 +88,8 @@ def _rejected_fault() -> dict:
     return {
         "candidate_version": 2,
         "decision": "rejected",
-        "reason": "f1_macro 0.7 < 0.90",
-        "metrics": {"f1_macro": 0.7},
+        "reason": "f1_macro 0.69 < 0.70",
+        "metrics": {"f1_macro": 0.69},
     }
 
 

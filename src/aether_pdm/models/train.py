@@ -6,10 +6,10 @@ Supports optional YAML config files for reproducible parameter sets.
 Logs models to MLflow.
 
 Usage:
-    python -m aether_pdm.models.train --features data/interim/features/features_v1.parquet
-    python -m aether_pdm.models.train --features .../features_v1.parquet
+    python -m aether_pdm.models.train --features data/interim/features/features_v2.parquet
+    python -m aether_pdm.models.train --features .../features_v2.parquet
         --anomaly-config configs/train_anomaly.yaml
-    python -m aether_pdm.models.train --features .../features_v1.parquet
+    python -m aether_pdm.models.train --features .../features_v2.parquet
         --fault-config configs/train_fault.yaml
 """
 

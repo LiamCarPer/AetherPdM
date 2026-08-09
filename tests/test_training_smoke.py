@@ -9,7 +9,7 @@ from aether_pdm.data.synthetic import generate_dataset, synthetic_waveform
 from aether_pdm.models.anomaly import train_anomaly
 from aether_pdm.models.fault import FAULT_LABELS, train_fault_classifier
 from aether_pdm.serve.inference import InferenceEngine
-from aether_pdm.signal.pipeline import process_dataset
+from aether_pdm.signal.pipeline import FEATURE_VERSION, process_dataset
 
 
 @pytest.mark.slow
@@ -37,10 +37,11 @@ def test_training_smoke_full_pipeline(tmp_path: Path) -> None:
     feat_dir = tmp_path / "features"
     feat_dir.mkdir()
     df = process_dataset(data_path, output_dir=feat_dir, window_size=1024, overlap=0.5)
-    features_path = feat_dir / "features_v1.parquet"
+    features_path = feat_dir / f"features_{FEATURE_VERSION}.parquet"
     assert features_path.exists(), "Feature pipeline should produce output file"
     assert len(df) > 10, f"Expected >10 feature windows, got {len(df)}"
     assert "feature_version" in df.columns
+    assert df["feature_version"].iloc[0] == FEATURE_VERSION
 
     # ---- 3. Train anomaly detector ----
     anomaly_model = train_anomaly(

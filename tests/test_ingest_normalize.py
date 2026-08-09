@@ -22,7 +22,7 @@ def test_determine_split():
         assert determine_split(fid) == "test"
     assert determine_split("222") == "test"
     assert determine_split("097") == "train"
-    assert determine_split("105") == "train"
+    assert determine_split("106") == "train"
     assert determine_split("199") == "train"
 
 
@@ -30,12 +30,14 @@ def test_determine_split_val():
     """Validation files should map to 'val', test files to 'test', rest to 'train'."""
     assert determine_split("97") == "val"
     assert determine_split("98") == "val"
-    assert determine_split("109") == "val"
-    assert determine_split("122") == "val"
-    assert determine_split("197") == "val"
-    assert determine_split("198") == "val"
+    assert determine_split("105") == "val"
+    assert determine_split("209") == "val"
+    assert determine_split("118") == "val"
+    assert determine_split("121") == "val"
+    assert determine_split("130") == "val"
+    assert determine_split("234") == "val"
     assert determine_split("222") == "test"
-    assert determine_split("105") == "train"
+    assert determine_split("199") == "train"
 
 
 def test_split_sets_disjoint():
@@ -118,7 +120,7 @@ def test_normalize_file_accepts_unpadded_variable_names(tmp_path):
 
     assert not df.empty
     assert (df["fault_type"] == "inner_race").all()
-    assert (df["split"] == "train").all()
+    assert (df["split"] == "val").all()
 
 
 def test_build_feature_parquet_writes_rows(tmp_path):

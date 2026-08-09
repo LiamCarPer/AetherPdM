@@ -17,7 +17,7 @@ import pandas as pd
 from aether_pdm.signal.features import compute_all_features
 from aether_pdm.signal.window import sliding_windows
 
-FEATURE_VERSION = "v1"
+FEATURE_VERSION = "v2"
 
 
 def process_waveform(
