@@ -1,7 +1,7 @@
 """
 Promotion gate for MLflow model registry.
 
-Evaluates a candidate model (staging stage, or latest if no staging exists)
+Evaluates a candidate model (staging alias, or latest if no staging exists)
 against validation data. Promotes to 'production' only if metrics pass
 the configured thresholds (e.g., FAR <= max_far, detection_rate >= min_recall).
 Logs the decision and metrics to MLflow.
@@ -36,6 +36,8 @@ from aether_pdm.models.anomaly import META_COLS as ANOMALY_META_COLS
 from aether_pdm.models.fault import META_COLS as FAULT_META_COLS
 
 DEFAULT_SPLIT = "val"
+_STAGING_ALIAS = "staging"
+_PRODUCTION_ALIAS = "production"
 
 
 def _numeric_metrics(metrics: dict[str, Any]) -> dict[str, float]:
@@ -301,7 +303,7 @@ def _attach_manifest(
 
 def _load_candidate_model(name: str, client: Any) -> tuple[Any, int]:
     """
-    Find candidate version: prefer 'staging' stage, else latest any-stage.
+    Find candidate version: prefer the 'staging' alias, else latest registered.
     Returns (model, version).
 
     Raises
@@ -309,32 +311,22 @@ def _load_candidate_model(name: str, client: Any) -> tuple[Any, int]:
     ValueError
         If no model version exists for ``name``.
     """
-    staging: list[Any] = []
     try:
-        staging = client.get_latest_versions(name, stages=["Staging"])
+        version = client.get_model_version_by_alias(name, _STAGING_ALIAS)
     except MlflowException:
-        # Model registry missing entirely (or store-specific error) -> no staging.
-        staging = []
-
-    if staging:
-        version = int(staging[0].version)
-        model = mlflow.sklearn.load_model(staging[0].source)
-        return model, version
-
-    latest = client.search_model_versions(
-        f"name='{name}'",
-        order_by=["version_number DESC"],
-        max_results=1,
-    )
-    if not latest:
-        raise ValueError(
-            f"No model versions found for '{name}'. "
-            "Train and register a model before running the promotion gate."
+        latest = client.search_model_versions(
+            f"name='{name}'",
+            order_by=["version_number DESC"],
+            max_results=1,
         )
-
-    version = int(latest[0].version)
-    model = mlflow.sklearn.load_model(latest[0].source)
-    return model, version
+        if not latest:
+            raise ValueError(
+                f"No model versions found for '{name}'. "
+                "Train and register a model before running the promotion gate."
+            )
+        version = latest[0]
+    model = mlflow.sklearn.load_model(version.source)
+    return model, int(version.version)
 
 
 def _load_fault_label_encoder(client: Any, model_name: str, version: int) -> LabelEncoder:
@@ -363,8 +355,8 @@ def promote_anomaly(
     gate: GateConfig | None = None,
 ) -> dict[str, Any]:
     """
-    Load latest candidate (staging, else latest any-stage), evaluate on val,
-    and promote to production if the GatedOps gate passes.
+    Load latest candidate (staging alias, else latest registered), evaluate
+    on val, and promote to production if the GatedOps gate passes.
 
     The decision is made by ``gatedops.gate.engine.evaluate_gate`` against the
     anomaly thresholds (detection_rate >= min_recall, false_alarm_rate
@@ -399,11 +391,7 @@ def promote_anomaly(
     reason = _build_anomaly_reason(recall, min_recall, far, max_far)
 
     if decision == "promoted":
-        client.transition_model_version_stage(
-            name=model_name,
-            version=str(candidate_version),
-            stage="Production",
-        )
+        client.set_registered_model_alias(model_name, _PRODUCTION_ALIAS, str(candidate_version))
 
     _attach_manifest(client, model_name, candidate_version, metrics, report, features_path)
 
@@ -469,11 +457,7 @@ def promote_fault(
     )
 
     if decision == "promoted":
-        client.transition_model_version_stage(
-            name=model_name,
-            version=str(candidate_version),
-            stage="Production",
-        )
+        client.set_registered_model_alias(model_name, _PRODUCTION_ALIAS, str(candidate_version))
 
     _attach_manifest(client, model_name, candidate_version, metrics, report, features_path)
 

@@ -37,8 +37,8 @@ def _mock_mlflow(monkeypatch):
     transitions: list[tuple[str, str, str]] = []
 
     class FakeClient:
-        def transition_model_version_stage(self, name, version, stage):
-            transitions.append((name, str(version), stage))
+        def set_registered_model_alias(self, name, alias, version):
+            transitions.append((name, alias, str(version)))
             return None
 
     monkeypatch.setattr(promote_mod.mlflow, "set_tracking_uri", lambda uri: None)
@@ -163,7 +163,7 @@ def test_promote_anomaly_rejects_when_val_empty(monkeypatch, tmp_path):
 
 
 def test_promote_anomaly_promotes_when_metrics_pass(monkeypatch, tmp_path):
-    """Metrics above thresholds -> promoted, transition_model_version_stage called."""
+    """Metrics above thresholds -> promoted, production alias set."""
     import aether_pdm.ops.promote as promote_mod
 
     feat_path = _write_features(tmp_path)
@@ -179,7 +179,7 @@ def test_promote_anomaly_promotes_when_metrics_pass(monkeypatch, tmp_path):
     assert result["decision"] == "promoted"
     assert result["candidate_version"] == 1
     assert result["gate"].status == "PASS"
-    assert transitions == [("aether-anomaly", "1", "Production")]
+    assert transitions == [("aether-anomaly", "production", "1")]
 
 
 def test_promote_anomaly_rejects_when_thresholds_not_met(monkeypatch, tmp_path):
@@ -222,7 +222,7 @@ def test_promote_fault_mocked(monkeypatch, tmp_path):
     assert result["decision"] == "promoted"
     assert result["metrics"]["f1_macro"] == 1.0
     assert result["metrics"]["balanced_accuracy"] == 1.0
-    assert transitions == [("aether-fault-clf", "1", "Production")]
+    assert transitions == [("aether-fault-clf", "production", "1")]
 
 
 def test_promote_fault_rejects_when_balanced_accuracy_below_gate(monkeypatch, tmp_path):
@@ -413,13 +413,13 @@ def test_evaluate_fault_single_class_raises(tmp_path):
         evaluate_fault_candidate(model, le, path)
 
 
-def test_load_candidate_model_prefers_staging(monkeypatch):
-    """Should return the Staging version when one exists."""
+def test_load_candidate_model_prefers_staging_alias(monkeypatch):
+    """Should return the version behind the staging alias when one exists."""
     import aether_pdm.ops.promote as promote_mod
 
     class FakeClient:
-        def get_latest_versions(self, name, stages=None):
-            return [SimpleNamespace(version=2, source="staging-source")]
+        def get_model_version_by_alias(self, name, alias):
+            return SimpleNamespace(version=2, source="staging-source")
 
         def search_model_versions(self, query, order_by=None, max_results=None):
             return [SimpleNamespace(version=5, source="latest-source")]
@@ -437,12 +437,14 @@ def test_load_candidate_model_prefers_staging(monkeypatch):
 
 
 def test_load_candidate_model_falls_back_to_latest(monkeypatch):
-    """Should fall back to the latest any-stage version when no Staging exists."""
+    """Should fall back to the latest version when no staging alias exists."""
+    from mlflow.exceptions import MlflowException
+
     import aether_pdm.ops.promote as promote_mod
 
     class FakeClient:
-        def get_latest_versions(self, name, stages=None):
-            return []
+        def get_model_version_by_alias(self, name, alias):
+            raise MlflowException("no staging alias")
 
         def search_model_versions(self, query, order_by=None, max_results=None):
             return [SimpleNamespace(version=7, source="latest-source")]
@@ -461,13 +463,15 @@ def test_load_candidate_model_falls_back_to_latest(monkeypatch):
 
 def test_load_candidate_model_uses_version_number_order(monkeypatch):
     """The latest-version query must use 'version_number DESC' (MLflow >= 2.9 sqlite)."""
+    from mlflow.exceptions import MlflowException
+
     import aether_pdm.ops.promote as promote_mod
 
     captured: list[list[str] | None] = []
 
     class FakeClient:
-        def get_latest_versions(self, name, stages=None):
-            return []
+        def get_model_version_by_alias(self, name, alias):
+            raise MlflowException("no staging alias")
 
         def search_model_versions(self, query, order_by=None, max_results=None):
             captured.append(order_by)
@@ -486,13 +490,13 @@ def test_load_candidate_model_uses_version_number_order(monkeypatch):
 
 
 def test_load_candidate_model_falls_back_when_registry_error(monkeypatch):
-    """Should treat a missing registry as no Staging and fall back to latest."""
+    """Should treat a missing alias as no staging and fall back to latest."""
     from mlflow.exceptions import MlflowException
 
     import aether_pdm.ops.promote as promote_mod
 
     class FakeClient:
-        def get_latest_versions(self, name, stages=None):
+        def get_model_version_by_alias(self, name, alias):
             raise MlflowException("registry unavailable")
 
         def search_model_versions(self, query, order_by=None, max_results=None):
@@ -512,11 +516,13 @@ def test_load_candidate_model_falls_back_when_registry_error(monkeypatch):
 
 def test_load_candidate_model_no_versions_raises():
     """Should raise ValueError when no model version exists for the name."""
+    from mlflow.exceptions import MlflowException
+
     import aether_pdm.ops.promote as promote_mod
 
     class FakeClient:
-        def get_latest_versions(self, name, stages=None):
-            return []
+        def get_model_version_by_alias(self, name, alias):
+            raise MlflowException("no staging alias")
 
         def search_model_versions(self, query, order_by=None, max_results=None):
             return []

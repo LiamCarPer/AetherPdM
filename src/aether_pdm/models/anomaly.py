@@ -96,7 +96,15 @@ def train_anomaly(
             "n_train_samples": len(x_train),
             "strict_boundary": strict_boundary,
         })
-        mlflow.sklearn.log_model(model, "model", registered_model_name="aether-anomaly")
+        model_info = mlflow.sklearn.log_model(
+            model, "model", registered_model_name="aether-anomaly"
+        )
+        if model_info.registered_model_version is not None:
+            mlflow.tracking.MlflowClient().set_registered_model_alias(
+                "aether-anomaly",
+                "staging",
+                str(model_info.registered_model_version),
+            )
         mlflow.log_artifact(str(features_path), artifact_path="data")
 
         # Log baseline metrics on training data

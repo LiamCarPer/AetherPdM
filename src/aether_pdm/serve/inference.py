@@ -35,15 +35,15 @@ class InferenceEngine:
         mlflow_uri: str = "sqlite:///mlflow.db",
         window_size: int = 2048,
         overlap: float = 0.5,
-        anomaly_stage: str = "production",
-        fault_stage: str = "production",
+        anomaly_alias: str = "production",
+        fault_alias: str = "production",
     ):
         mlflow.set_tracking_uri(mlflow_uri)
         self.mlflow_uri = mlflow_uri
         self._manifests: dict[str, dict | None] = {}
         try:
             self.client = mlflow.tracking.MlflowClient()
-            self._load_models(anomaly_stage, fault_stage)
+            self._load_models(anomaly_alias, fault_alias)
         except Exception as e:
             logger = logging.getLogger(__name__)
             logger.warning("Failed to load models from MLflow (%s): %s", mlflow_uri, e)
@@ -55,26 +55,34 @@ class InferenceEngine:
         self.window_size = window_size
         self.overlap = overlap
 
-    def _load_models(self, anomaly_stage: str, fault_stage: str) -> None:
-        """Load models from MLflow model registry."""
-        self.anomaly_model = self._load_model(MODEL_ANOMALY, anomaly_stage)
-        self.fault_model = self._load_model(MODEL_FAULT, fault_stage)
+    def _load_models(self, anomaly_alias: str, fault_alias: str) -> None:
+        """Load models from the MLflow model registry by alias."""
+        self.anomaly_model = self._load_model(MODEL_ANOMALY, anomaly_alias)
+        self.fault_model = self._load_model(MODEL_FAULT, fault_alias)
 
-    def _load_model(self, name: str, stage: str):
-        versions = self.client.get_latest_versions(name, stages=[stage])
-        if not versions:
-            versions = self.client.get_latest_versions(name, stages=["None"])
-        if not versions:
-            versions = self.client.search_model_versions(f"name='{name}'", max_results=1)
-        if not versions:
-            raise RuntimeError(f"No versions found for model '{name}'")
-        model = mlflow.sklearn.load_model(versions[0].source)
+    def _load_model(self, name: str, alias: str):
+        """Load the version an alias points at, falling back to the latest."""
+        try:
+            version = self.client.get_model_version_by_alias(name, alias)
+        except Exception:
+            versions = self.client.search_model_versions(
+                f"name='{name}'",
+                order_by=["version_number DESC"],
+                max_results=1,
+            )
+            if not versions:
+                raise RuntimeError(f"No versions found for model '{name}'")
+            version = versions[0]
+        model = mlflow.sklearn.load_model(version.source)
         attr = _VERSION_ATTRS.get(name, f"{name}_version")
-        setattr(self, attr, versions[0].version)
-        self._manifests[name] = self._read_manifest_tag(name, versions[0].version)
+        setattr(self, attr, version.version)
+        self._manifests[name] = self._read_manifest_tag(name, version.version)
         # Read fault classes from run params if available
         if name == MODEL_FAULT:
-            run = self.client.get_run(versions[0].run_id)
+            run_id = version.run_id
+            if run_id is None:
+                raise RuntimeError(f"No tracking run for model '{name}'")
+            run = self.client.get_run(run_id)
             classes_param = run.data.params.get("classes", "")
             if classes_param:
                 self.fault_classes = classes_param.split(",")
