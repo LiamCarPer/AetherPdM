@@ -62,8 +62,6 @@ The bootstrap registry lives in the workdir
 root:
 
 ```bash
-uv run uvicorn aether_pdm.serve.app:app --port 8000 \
-  --env-file .env 2>/dev/null; # or, in your shell:
 AETHER_MLFLOW_TRACKING_URI=sqlite:///data/demo_bootstrap/mlflow.db \
   uv run uvicorn aether_pdm.serve.app:app --port 8000
 ```
