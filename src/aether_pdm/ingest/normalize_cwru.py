@@ -24,7 +24,14 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # CWRU file → label mapping
 # Format: (file_pattern, fault_type, fault_diameter_inch, location)
-# Source: CWRU Bearing Data Center documentation
+# Source: CWRU Bearing Data Center 12k Drive End page
+#   https://engineering.case.edu/bearingdatacenter/12k-drive-end-bearing-fault-data
+#
+# The host renumbered the 12k DE files (2024+). IDs that now return HTTP 404
+# were remapped to their official replacements below (same fault_type,
+# fault_diameter, location). Legacy IDs whose content could not be verified
+# against the official page (e.g. 135/136, shuffled loads) were dropped in
+# favor of the clean official groups.
 # ---------------------------------------------------------------------------
 
 CWRU_CATALOG: list[tuple[str, str, float, str]] = [
@@ -42,12 +49,14 @@ CWRU_CATALOG: list[tuple[str, str, float, str]] = [
     ("110", "inner_race", 0.014, "DE"),
     ("111", "inner_race", 0.014, "DE"),
     ("112", "inner_race", 0.014, "DE"),
-    ("113", "inner_race", 0.021, "DE"),
-    ("114", "inner_race", 0.021, "DE"),
-    ("115", "inner_race", 0.021, "DE"),
-    ("116", "inner_race", 0.021, "DE"),
+    # 113-116 (IR021) are 404 -> official replacement group 209-212
+    ("209", "inner_race", 0.021, "DE"),
+    ("210", "inner_race", 0.021, "DE"),
+    ("211", "inner_race", 0.021, "DE"),
+    ("212", "inner_race", 0.021, "DE"),
     # Ball fault — drive end
-    ("117", "ball", 0.007, "DE"),
+    # 117 (B007) is 404; official B007 group is 118-121, but 121 is already
+    # catalogued as ball 0.014 (it is alive), so 117 is dropped, not remapped.
     ("118", "ball", 0.007, "DE"),
     ("119", "ball", 0.007, "DE"),
     ("120", "ball", 0.007, "DE"),
@@ -55,23 +64,27 @@ CWRU_CATALOG: list[tuple[str, str, float, str]] = [
     ("122", "ball", 0.014, "DE"),
     ("123", "ball", 0.014, "DE"),
     ("124", "ball", 0.014, "DE"),
-    ("125", "ball", 0.021, "DE"),
-    ("126", "ball", 0.021, "DE"),
-    ("127", "ball", 0.021, "DE"),
-    ("128", "ball", 0.021, "DE"),
+    # 125-128 (B021) -> official replacement group 222-225
+    ("222", "ball", 0.021, "DE"),
+    ("223", "ball", 0.021, "DE"),
+    ("224", "ball", 0.021, "DE"),
+    ("225", "ball", 0.021, "DE"),
     # Outer race fault — drive end (centered @ 6:00)
-    ("129", "outer_race", 0.007, "DE"),
+    # 129 (OR007@6) is 404; official OR007@6 group is 130-133, but 133 is not
+    # re-catalogued (it was a legacy OR014 file), so 129 is dropped.
     ("130", "outer_race", 0.007, "DE"),
     ("131", "outer_race", 0.007, "DE"),
     ("132", "outer_race", 0.007, "DE"),
-    ("133", "outer_race", 0.014, "DE"),
-    ("134", "outer_race", 0.014, "DE"),
-    ("135", "outer_race", 0.014, "DE"),
-    ("136", "outer_race", 0.014, "DE"),
+    # 133-136 (OR014@6) -> official replacement group 197-200
+    ("197", "outer_race", 0.014, "DE"),
+    ("198", "outer_race", 0.014, "DE"),
+    ("199", "outer_race", 0.014, "DE"),
+    ("200", "outer_race", 0.014, "DE"),
+    # 139-140 (OR021@6) are 404 -> official replacements 234-235 (137/138 kept)
     ("137", "outer_race", 0.021, "DE"),
     ("138", "outer_race", 0.021, "DE"),
-    ("139", "outer_race", 0.021, "DE"),
-    ("140", "outer_race", 0.021, "DE"),
+    ("234", "outer_race", 0.021, "DE"),
+    ("235", "outer_race", 0.021, "DE"),
     # Outer race fault — orthogonal positions @ 3:00 and 12:00
     ("144", "outer_race", 0.007, "DE"),
     ("145", "outer_race", 0.007, "DE"),
@@ -81,10 +94,11 @@ CWRU_CATALOG: list[tuple[str, str, float, str]] = [
     ("149", "outer_race", 0.014, "DE"),
     ("150", "outer_race", 0.014, "DE"),
     ("151", "outer_race", 0.014, "DE"),
-    ("152", "outer_race", 0.021, "DE"),
-    ("153", "outer_race", 0.021, "DE"),
-    ("154", "outer_race", 0.021, "DE"),
-    ("155", "outer_race", 0.021, "DE"),
+    # 152-155 (OR021@3) are 404 -> official replacement group 246-249
+    ("246", "outer_race", 0.021, "DE"),
+    ("247", "outer_race", 0.021, "DE"),
+    ("248", "outer_race", 0.021, "DE"),
+    ("249", "outer_race", 0.021, "DE"),
 ]
 
 # Load → RPM mapping for CWRU drive-end bearing
@@ -98,8 +112,9 @@ CHANNELS = {
 }
 
 # Anti-leakage: hold out specific files for test
-# These are the most severe faults — harder to generalize to
-TEST_FILES: set[str] = {"125", "126", "127", "128"}
+# These are the most severe faults (ball 0.021", current official group) —
+# harder to generalize to.
+TEST_FILES: set[str] = {"222", "223", "224", "225"}
 
 # File-level validation split (disjoint from TEST_FILES).
 # Moderate-severity (0.014") faults + healthy baselines, so the val set
@@ -108,8 +123,8 @@ TEST_FILES: set[str] = {"125", "126", "127", "128"}
 #   "97","98"   -> normal
 #   "109","110" -> inner_race 0.014
 #   "121","122" -> ball 0.014
-#   "133","134" -> outer_race 0.014
-VAL_FILES: set[str] = {"97", "98", "109", "110", "121", "122", "133", "134"}
+#   "197","198" -> outer_race 0.014
+VAL_FILES: set[str] = {"97", "98", "109", "110", "121", "122", "197", "198"}
 
 
 def _validate_split_sets() -> None:
@@ -170,6 +185,31 @@ def determine_load_hp(mat: dict, file_id: str) -> float:
     return 0.0
 
 
+def _channel_variable_names(file_id: str, suffix: str) -> list[str]:
+    """Candidate CWRU channel variable names for ``file_id``, canonical first.
+
+    Official CWRU .mat files zero-pad the numeric ID to three digits and
+    prefix it with ``X`` (file ``97.mat`` contains ``X097_DE_time``). Some
+    mirrors repackage files without the padding or the prefix, so fall back
+    through the unpadded forms too.
+
+    Args:
+        file_id: Numeric catalog ID (e.g. ``"97"``).
+        suffix: Channel suffix (e.g. ``"_DE_time"``).
+
+    Returns:
+        Candidate variable names, most canonical first.
+    """
+    if not file_id.isdigit():
+        return [f"X{file_id}{suffix}", f"{file_id}{suffix}"]
+    padded = file_id.zfill(3)
+    return [
+        f"X{padded}{suffix}",
+        f"X{file_id}{suffix}",
+        f"{file_id}{suffix}",
+    ]
+
+
 def normalize_file(filepath: Path) -> pd.DataFrame:
     """Process a single CWRU .mat file into a normalized DataFrame row."""
     catalog = _build_catalog()
@@ -185,9 +225,12 @@ def normalize_file(filepath: Path) -> pd.DataFrame:
 
     rows = []
     for channel, (suffix, fs) in CHANNELS.items():
-        var_name = f"{file_id}{suffix}" if file_id.isdigit() else f"X{file_id}{suffix}"
-        if var_name in mat:
-            waveform = mat[var_name].ravel()
+        waveform: np.ndarray | None = None
+        for var_name in _channel_variable_names(file_id, suffix):
+            if var_name in mat:
+                waveform = mat[var_name].ravel()
+                break
+        if waveform is not None:
             rows.append(
                 {
                     "asset_id": f"cwru-{file_id}",
@@ -211,10 +254,22 @@ def normalize_file(filepath: Path) -> pd.DataFrame:
 
 
 def build_feature_parquet(input_dir: Path, output_dir: Path) -> Path:
-    """Normalize all CWRU .mat files into a single Parquet dataset."""
+    """Normalize all CWRU .mat files into a single Parquet dataset.
+
+    Raises:
+        RuntimeError: If no .mat files exist under ``input_dir`` or if none
+            could be normalized (including the case where files exist but
+            yield zero rows, e.g. non-numeric stems that do not match
+            ``CWRU_CATALOG``). The failure mode is always an actionable
+            message, never a ``KeyError`` on an empty result.
+    """
     mat_files = sorted(input_dir.rglob("*.mat"))
     if not mat_files:
-        raise FileNotFoundError(f"No .mat files found under {input_dir}")
+        raise RuntimeError(
+            f"No files were successfully normalized under {input_dir}: "
+            "no .mat files found. Run the downloader first: "
+            "`uv run python -m aether_pdm.ingest.download_cwru`"
+        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "cwru_normalized.parquet"
@@ -223,14 +278,30 @@ def build_feature_parquet(input_dir: Path, output_dir: Path) -> Path:
     for fp in mat_files:
         try:
             df = normalize_file(fp)
-            all_records.append(df)
         except Exception as e:
             print(f"  SKIP {fp.name}: {e}")
+            continue
+        if df.empty:
+            print(f"  SKIP {fp.name}: no catalog/channel match produced 0 rows")
+            continue
+        all_records.append(df)
 
     if not all_records:
-        raise RuntimeError("No files were successfully normalized")
+        raise RuntimeError(
+            f"No files were successfully normalized under {input_dir}. "
+            "Downloaded .mat files must use the numeric file IDs from "
+            "CWRU_CATALOG (e.g. '97.mat', '105.mat') so that `filepath.stem` "
+            "maps to the catalog. Re-run "
+            "`uv run python -m aether_pdm.ingest.download_cwru --file-ids ...` "
+            "and try again."
+        )
 
     result = pd.concat(all_records, ignore_index=True)
+    if result.empty:  # belt-and-braces: never KeyError on the distribution print
+        raise RuntimeError(
+            f"No files were successfully normalized under {input_dir}: "
+            "concatenated result is empty."
+        )
     result.to_parquet(output_path, index=False)
     print(f"Wrote {len(result)} rows to {output_path}")
     print(f"  Fault distribution:\n{result['fault_type'].value_counts().to_string()}")
