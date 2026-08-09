@@ -29,6 +29,8 @@ to different machines, loads, or operating conditions.
 
 ## Fresh-Clone Demo (no download, no Docker)
 
+> Full, annotated walkthrough with expected outputs: [docs/DEMO.md](docs/DEMO.md).
+
 ```bash
 uv sync
 uv run python scripts/bootstrap_demo.py
