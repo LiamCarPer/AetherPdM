@@ -75,7 +75,7 @@ class InferenceEngine:
             version = versions[0]
         model = mlflow.sklearn.load_model(version.source)
         attr = _VERSION_ATTRS.get(name, f"{name}_version")
-        setattr(self, attr, version.version)
+        setattr(self, attr, str(version.version))
         self._manifests[name] = self._read_manifest_tag(name, version.version)
         # Read fault classes from run params if available
         if name == MODEL_FAULT:

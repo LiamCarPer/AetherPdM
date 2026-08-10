@@ -49,7 +49,7 @@ Expected outcome (identifiers and versions vary):
 === Promoting anomaly model ===
   decision=promoted (Metrics pass gate: DR=1.0000 >= 0.8, FAR=0.0000 <= 0.1)
 === Promoting fault model ===
-  decision=promoted (Metrics pass gate: f1_macro=1.0000 >= 0.9, balanced_accuracy=1.0000 >= 0.9)
+  decision=promoted (Metrics pass gate: f1_macro=1.0000 >= 0.7, balanced_accuracy=1.0000 >= 0.7)
 ```
 
 If either gate rejects, the script exits non-zero — the same fail-closed
@@ -82,15 +82,19 @@ without a key — development mode. When auth is enabled, send the key in the
 ```bash
 curl -s -X POST http://localhost:8000/v1/assets/synth-demo/score \
   -H "Content-Type: application/json" \
-  -d '{"waveform": [0.1, 0.2, ...], "sampling_rate": 12000}'
+  -d '{"waveform": [0.1, 0.2, ...], "sampling_rate": 12000, "rpm": 1772.0}'
 ```
 
 The bootstrap script prints a command with a real waveform snippet, or
 generate one yourself:
 
 ```bash
-uv run python -c "import json; from aether_pdm.data.synthetic import synthetic_waveform; print(json.dumps({'waveform': synthetic_waveform(2048, fault_type='inner_race', fault_diameter=0.021, seed=1).tolist(), 'sampling_rate': 12000}))"
+uv run python -c "import json; from aether_pdm.data.synthetic import synthetic_waveform; print(json.dumps({'waveform': synthetic_waveform(2048, fault_type='inner_race', fault_diameter=0.021, seed=1).tolist(), 'sampling_rate': 12000, 'rpm': 1772.0}))"
 ```
+
+> `rpm` is required: the 36 vibration features (including bearing fault
+> frequencies BPFO/BPFI/BSF) are computed from shaft speed, so a request
+> without it scores with 17 features and the model rejects it.
 
 A score response looks like (values illustrative):
 

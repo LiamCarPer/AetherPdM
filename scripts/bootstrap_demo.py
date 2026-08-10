@@ -62,10 +62,11 @@ def _print_curl() -> None:
     print("  uv run python -c \"import json; from aether_pdm.data.synthetic import"
     " synthetic_waveform; print(json.dumps({'waveform': synthetic_waveform(2048,"
     " fault_type='inner_race', fault_diameter=0.021, seed=1).tolist(),"
-    " 'sampling_rate': 12000}))\")")
+    " 'sampling_rate': 12000, 'rpm': 1772.0}))\")")
     print("  curl -s -X POST http://localhost:8000/v1/assets/synth-demo/score \\")
     print("    -H 'Content-Type: application/json' \\")
-    print(f"    -d '{{\"waveform\": [{snippet_str}, ...], \"sampling_rate\": 12000}}'")
+    print(f"    -d '{{\"waveform\": [{snippet_str}, ...], \"sampling_rate\": 12000,"
+    " \"rpm\": 1772.0}}'")
     print()
 
 
