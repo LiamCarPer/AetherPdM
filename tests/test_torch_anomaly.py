@@ -9,6 +9,7 @@ module top-level stays torch-free.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -32,10 +33,29 @@ def _make_separable(
 
 
 def test_package_import_does_not_load_torch():
-    """Fast CI guard: importing the package must never import torch."""
-    import aether_pdm  # noqa: F401
+    """Fast CI guard: importing the package must never import torch.
 
-    assert "torch" not in sys.modules
+    Runs in a subprocess so torch loaded by OTHER tests in this session
+    (e.g. via mlflow.pytorch in slow suites) cannot pollute sys.modules
+    and false-fail the guard.
+    """
+    import subprocess
+
+    code = (
+        "import sys; "
+        "import aether_pdm; "
+        "assert 'torch' not in sys.modules, 'torch imported'; "
+        "print('lazy import OK')"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        cwd=str(Path(__file__).resolve().parents[1]),
+        timeout=120,
+    )
+    assert result.returncode == 0, f"lazy import failed:\n{result.stderr}"
+    assert "lazy import OK" in result.stdout
 
 
 @pytest.mark.slow
