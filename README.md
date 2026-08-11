@@ -106,6 +106,18 @@ Prometheus metrics are exposed at `/metrics` (port 8000):
 
 Grafana dashboard at http://localhost:3000 (admin/admin).
 
+## Cloud Deployment (Azure, free-tier)
+
+`infra/azure/` contains Terraform for an Azure free-tier deployment
+(App Service F1 + Postgres Flexible B1ms + Blob MLflow artifacts + Container
+Apps cron for the ops loop). The runbook is `docs/azure-deployment-runbook.md`.
+
+**Status: configs committed — deployment NOT yet executed.** No live endpoint
+exists; `terraform plan/apply` requires an Azure account (free $200 credit).
+Teardown: `terraform destroy` (one resource group).
+
+Run instructions + cost guardrails: `infra/azure/README.md`.
+
 ## What's Inside
 
 | Component | File | Purpose |
@@ -322,7 +334,8 @@ aether-pdm/
 - **Vertical**: bearings and rotating equipment only (see ADR-001)
 - **Algorithms**: scikit-learn based (not deep learning unless it clearly outperforms)
 - **RUL**: health/severity scoring only — no remaining-useful-life time-to-failure prediction
-- **Cloud**: not deployed; runs locally via Docker Compose (cloud target: Azure/AWS TBD)
+- **Cloud**: Azure free-tier IaC committed but NOT yet deployed (see
+  [Cloud Deployment](#cloud-deployment-azure-free-tier)); runs locally via Docker Compose
 - **Demo data**: CWRU + synthetic for MVP; Paderborn for domain-shift analysis. Production
   validation on real plant data is the next required step before field deployment.
 
