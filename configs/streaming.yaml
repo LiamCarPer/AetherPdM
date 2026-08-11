@@ -1,0 +1,12 @@
+# Streaming ingest consumer config
+broker:
+  host: localhost
+  port: 1883
+topic_pattern: "aether/assets/+/vibration"
+qos: 1
+signal:
+  window_size: 2048
+  overlap: 0.5
+# Hard cap on accepted waveform samples (~22 s at 12 kHz); larger payloads are
+# logged and skipped to protect the consumer from misconfigured publishers.
+max_buffer: 262144

@@ -31,7 +31,7 @@ jobs:
         run: uv run pytest tests/ -v -m "not slow" --cov=src/aether_pdm --cov-report=term-missing
 
       - name: Run smoke test
-        run: uv run pytest tests/test_training_smoke.py tests/test_inference_smoke.py -v --cov=src/aether_pdm --cov-append --cov-report=term
+        run: uv run pytest tests/test_training_smoke.py tests/test_inference_smoke.py tests/test_export_edge.py tests/test_gpu_train.py -v --cov=src/aether_pdm --cov-append --cov-report=term
 
   compose-smoke:
     runs-on: ubuntu-latest

@@ -69,6 +69,74 @@ def synthetic_waveform(
     return signal
 
 
+def degradation_ramp(
+    n_points: int = 24,
+    span_hours: float = 480.0,
+    fault_type: str = "outer_race",
+    fault_diameter_max: float = 0.0230,
+    reference_diameter: float = 0.028,
+    length: int = 4096,
+    sampling_rate: float = 12000.0,
+    rpm: float = 1772.0,
+    noise_level: float = 0.05,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Generate a synthetic degradation trajectory for RUL demos.
+
+    Emits one row per inspection point: a vibration waveform whose fault
+    diameter grows linearly from 0 to ``fault_diameter_max`` across
+    ``span_hours``. The degradation index is the waveform RMS normalized by
+    the healthy baseline, anchored so the ramp starts at 0 (pristine) and
+    reaches 1 at the ``reference_diameter`` (default 0.028, the dataset's
+    maximum severity)::
+
+        index_i = clip((rms_i / rms_baseline - ratio_0) / (ratio_ref - ratio_0), 0, 1)
+
+    Columns: ``hours``, ``fault_diameter``, ``rms``, ``degradation_index``,
+    ``health_score`` (health = 1 - index).
+
+    NOTE: this is a *simulated* trajectory for demo/testing only — there is
+    no run-to-failure ground truth behind it. RUL numbers derived from it
+    must carry the honesty caveats documented in
+    ``aether_pdm.models.rul`` and ``docs/model-cards/rul-v1.md``.
+    """
+    diameters = np.linspace(0.0, fault_diameter_max, n_points)
+    hours = np.linspace(0.0, span_hours, n_points)
+
+    def _rms(fault_diameter: float, wave_seed: int) -> float:
+        waveform = synthetic_waveform(
+            length=length,
+            sampling_rate=sampling_rate,
+            rpm=rpm,
+            fault_type=fault_type,
+            fault_diameter=fault_diameter,
+            noise_level=noise_level,
+            seed=wave_seed,
+        )
+        return float(np.sqrt(np.mean(np.square(waveform))))
+
+    rms_baseline = _rms(0.0, seed)  # 'normal' waveform = pristine baseline
+    rms_values = [_rms(float(d), seed + i) for i, d in enumerate(diameters)]
+    rms_reference = _rms(reference_diameter, seed + n_points + 1)
+
+    ratios = np.asarray(rms_values) / rms_baseline
+    ratio_0 = ratios[0]
+    ratio_ref = rms_reference / rms_baseline
+    if ratio_ref - ratio_0 <= 1e-12:
+        ratio_ref = ratio_0 + 1.0  # degenerate ramp -> index stays 0
+    degradation_index = np.clip((ratios - ratio_0) / (ratio_ref - ratio_0), 0.0, 1.0)
+
+    return pd.DataFrame(
+        {
+            "hours": hours,
+            "fault_diameter": diameters,
+            "rms": rms_values,
+            "degradation_index": degradation_index,
+            "health_score": 1.0 - degradation_index,
+        }
+    )
+
+
 def generate_dataset(
     output_dir: Path,
     n_normal: int = 20,

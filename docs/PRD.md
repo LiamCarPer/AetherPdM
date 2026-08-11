@@ -50,9 +50,9 @@ AetherPdM addresses the gap between "no data" and "expensive enterprise PdM suit
 ### Won't-have (explicitly out of scope)
 
 - Gearbox / belt / hydraulic diagnostics (see ADR-001)
-- Real RUL prediction (severity ordinal only, not time-to-failure)
+- Calibrated RUL / time-to-failure prediction — degradation-trend RUL implemented (`models/rul.py`, CLI: `scripts/estimate_rul.py`, model card: `docs/model-cards/rul-v1.md`); run-to-failure validation (NASA IMS / XJTU-SY) is future work
 - Mobile app (responsive web only)
-- Real-time streaming (file-upload and batch only)
+- Real-time streaming: MQTT ingest implemented (window → features → sink); continuous real-time scoring of the live stream is future work
 
 ## 4. Success Metrics
 
