@@ -29,7 +29,25 @@ dependencies = [
     "pytest-asyncio[dev]>=1.4.0",
     "prometheus-client>=0.21",
     "gatedops @ git+https://github.com/LiamCarPer/GatedOps.git@v0.2.0",
+    # PyTorch: core CV claim, but imported lazily (see aether_pdm.models.torch_anomaly)
+    # so the package itself and CI fast tests never pay the import cost.
+    "torch>=2.2",
+    "onnx>=1.22.0",
+    "onnxruntime>=1.28.0",
+    "skl2onnx>=1.20.0",
+    "paho-mqtt>=2.1.0",
 ]
+
+# CPU-only torch wheels: explicit index confined to torch so every other
+# dependency still resolves from PyPI (first-match would otherwise pull stale
+# transitive deps from the pytorch index).
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 
 [project.optional-dependencies]
 dev = [

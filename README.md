@@ -54,8 +54,8 @@ GatedOps gate → prints a ready-to-run scoring curl. Deterministic (fixed seeds
                 ┌───────────────┼───────────────┐
                 ▼               ▼               ▼
          ┌────────────┐ ┌────────────┐ ┌──────────────┐
-         │ Anomaly    │ │ Fault      │ │ Risk/RUL     │
-         │ Detector   │ │ Classifier │ │ (light)      │
+         │ Anomaly    │ │ Fault      │ │ RUL (trend)  │
+         │ Detector   │ │ Classifier │ │ estimator    │
          └────────────┘ └────────────┘ └──────────────┘
                 │               │               │
                 └───────────────┼───────────────┘
@@ -127,6 +127,7 @@ Run instructions + cost guardrails: `infra/azure/README.md`.
 | **Signal Pipeline** | `signal/pipeline.py` | Window → time-domain → FFT → envelope → feature vectors |
 | **Anomaly Detector** | `models/anomaly.py` | IsolationForest trained on healthy-only data |
 | **Fault Classifier** | `models/fault.py` | RandomForest on 4 classes with LabelEncoder |
+| **RUL Estimator** | `models/rul.py` | Degradation-trend RUL from health-score history (honest: no calibrated time-to-failure) |
 | **Config-Driven Training** | `models/train.py` | YAML-based reproducible training (via `--fault-config`) |
 | **Inference Engine** | `serve/inference.py` | Loads MLflow models, scores raw waveforms |
 | **REST API** | `serve/app.py` | FastAPI: score, alerts, assets, health |
@@ -219,6 +220,62 @@ uv run python scripts/run_batch_scorer.py --org acme --hysteresis 3 --cooldown-m
 
 Scores are persisted to `score_records`; alerts to `alerts` (visible via the
 dashboard and `GET /v1/alerts`).
+
+## RUL Estimation (degradation-trend, honest scope)
+
+A remaining-useful-life estimate for the dashboard / CV demo — with an
+explicit caveat: this is a **degradation-trend extrapolation, not a
+calibrated time-to-failure model**. No run-to-failure ground truth exists in
+CWRU / Paderborn / synthetic data; validation on NASA IMS / XJTU-SY
+run-to-failure datasets is future work.
+
+```bash
+# Synthetic degradation ramp demo (no data needed)
+uv run python scripts/estimate_rul.py --synthetic
+
+# From a persisted health-score history (JSON list of {timestamp, health_score})
+uv run python scripts/estimate_rul.py --scores-json scores.json --failure-threshold 0.9
+```
+
+The estimator (`aether_pdm.models.rul.DegradationTrendRUL`) fits a linear
+trend on a degradation index (`1 - health_score`) over elapsed hours and
+extrapolates to the failure threshold (default 0.9). Every result reports
+the fit's R², a 95% CI band around the extrapolation, and returns
+`RUL = None` when fewer than `min_points` observations exist or the trend is
+flat/improving ("no detectable degradation trend"). Low R² (< 0.5) is
+flagged `confidence="low"`; the estimate never claims `"high"` confidence
+because the trend → failure mapping is unvalidated.
+
+See [docs/model-cards/rul-v1.md](docs/model-cards/rul-v1.md) for the full
+honest-scope model card.
+
+## Streaming Ingest (MQTT)
+
+Consume vibration waveforms from industrial sensors over MQTT and run them
+through the same signal pipeline as batch data (window → features → sink):
+
+```bash
+# Consume aether/assets/{asset_id}/vibration and append features to parquet
+uv run python scripts/run_streaming_consumer.py --config configs/streaming.yaml --sink parquet
+
+# Ingest-only (no persistence, for testing)
+uv run python scripts/run_streaming_consumer.py --sink null
+
+# Attach the MLflow-backed InferenceEngine to score each message (if models exist)
+uv run python scripts/run_streaming_consumer.py --score
+```
+
+Payload contract (`aether/assets/{asset_id}/vibration`, JSON):
+
+```json
+{"waveform": [0.1, 0.2, ...], "sampling_rate": 12000, "rpm": 1772}
+```
+
+Broker, topic pattern, and windowing are configured in
+[`configs/streaming.yaml`](configs/streaming.yaml). Malformed or dropout
+messages (bad JSON, missing keys, NaN/Inf waveforms) are logged and skipped —
+the consumer never crashes on bad data. Features land in
+`{sink-dir}/{asset_id}.parquet`, one row per window.
 
 ## Scheduling (Autonomous Ops Loop)
 
@@ -316,7 +373,7 @@ aether-pdm/
 │   ├── ingest/        # Data downloaders and normalizers
 │   ├── signal/        # Windowing, FFT, envelope, DSP
 │   ├── features/      # Feature computation pipelines
-│   ├── models/        # Training, inference, calibration
+│   ├── models/        # Training, inference, calibration, RUL
 │   ├── eval/          # Temporal split, anti-leakage metrics
 │   ├── serve/         # FastAPI application
 │   ├── db/            # SQLAlchemy models + repository
@@ -333,9 +390,11 @@ aether-pdm/
 
 - **Vertical**: bearings and rotating equipment only (see ADR-001)
 - **Algorithms**: scikit-learn based (not deep learning unless it clearly outperforms)
-- **RUL**: health/severity scoring only — no remaining-useful-life time-to-failure prediction
+- **RUL**: degradation-trend extrapolation only (see `docs/model-cards/rul-v1.md`) — no calibrated time-to-failure prediction; run-to-failure validation (NASA IMS / XJTU-SY) is future work
 - **Cloud**: Azure free-tier IaC committed but NOT yet deployed (see
   [Cloud Deployment](#cloud-deployment-azure-free-tier)); runs locally via Docker Compose
+- **Streaming**: MQTT ingest implemented (window → features → sink, parquet/null);
+  continuous real-time scoring of the live stream is future work
 - **Demo data**: CWRU + synthetic for MVP; Paderborn for domain-shift analysis. Production
   validation on real plant data is the next required step before field deployment.
 
