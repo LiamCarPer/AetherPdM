@@ -1,0 +1,72 @@
+# CVAT annotation tool (semi-supervised defect labeling)
+# Run: docker compose -f infra/cvat/docker-compose.yml up -d
+# UI:  http://localhost:8080
+# Docs: docs/vision-labeling.md
+
+services:
+  cvat_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: cvat-db-password
+      POSTGRES_DB: cvat
+    volumes:
+      - cvat_db:/var/lib/postgresql/data
+
+  cvat_redis:
+    image: redis:7-alpine
+
+  cvat_server:
+    image: cvat/server:v2.5.0
+    command: run init 1000 && run deploy.all && run server
+    depends_on:
+      - cvat_redis
+      - cvat_db
+      - cvat_opa
+    ports:
+      - "8080:8080"
+    environment:
+      DJANGO_MODWSGI_WORKERS: 4
+      CVAT_REDIS_HOST: cvat_redis
+      CVAT_DB_HOST: cvat_db
+      CVAT_DB_USER: root
+      CVAT_DB_PASSWORD: cvat-db-password
+      CVAT_DB_NAME: cvat
+      CVAT_SHARE_HOST: /var/lib/cvat/share
+      CVAT_MEDIA_ROOT: /home/django/data
+      SMOKESCREEN_AC_ALLOWED_HOSTS: ""
+    volumes:
+      - cvat_data:/home/django/data
+      - cvat_keys:/home/django/keys
+
+  cvat_worker:
+    image: cvat/server:v2.5.0
+    command: run worker share
+    depends_on:
+      - cvat_redis
+      - cvat_db
+      - cvat_opa
+    environment:
+      CVAT_REDIS_HOST: cvat_redis
+      CVAT_DB_HOST: cvat_db
+      CVAT_DB_USER: root
+      CVAT_DB_PASSWORD: cvat-db-password
+      CVAT_SHARE_HOST: /var/lib/cvat/share
+    volumes:
+      - cvat_data:/home/django/data
+      - cvat_share:/home/django/share
+
+  cvat_ui:
+    image: cvat/ui:v2.5.0
+    ports:
+      - "8081:80"
+
+  cvat_opa:
+    image: openpolicyagent/opa:0.63.0-rootless
+    command: run --server --addr :8181 --set=decision_logs.console=true
+
+volumes:
+  cvat_db:
+  cvat_data:
+  cvat_keys:
+  cvat_share:
