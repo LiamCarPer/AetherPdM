@@ -51,7 +51,7 @@ jobs:
       - name: Upload GIFs
         # Belt-and-suspenders backup: artifacts expire after ~90 days, so
         # the commit-back step below is the primary persistence mechanism.
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-gifs
           path: docs/demo/*.gif
