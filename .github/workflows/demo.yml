@@ -15,7 +15,7 @@ jobs:
   render:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0
@@ -59,7 +59,7 @@ jobs:
       - name: Commit rendered GIFs
         # Persist the GIFs in the repo so they can be embedded in the README
         # via stable relative links (docs/demo/*.gif) instead of expiring
-        # Actions artifacts. actions/checkout@v4 persists the GITHUB_TOKEN
+        # Actions artifacts. actions/checkout@v7 persists the GITHUB_TOKEN
         # by default, giving us content:write on the current branch (main for
         # workflow_dispatch, the pushed branch for path-filtered pushes).
         #
