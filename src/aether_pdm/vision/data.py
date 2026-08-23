@@ -174,7 +174,13 @@ def parse_yolo_label(line: str) -> tuple[int, float, float, float, float]:
     parts = line.split()
     if len(parts) != 5:
         raise ValueError(f"bad label line: {line!r}")
-    return int(parts[0]), *(float(p) for p in parts[1:])
+    return (
+        int(parts[0]),
+        float(parts[1]),
+        float(parts[2]),
+        float(parts[3]),
+        float(parts[4]),
+    )
 
 
 def write_yolo_label(
