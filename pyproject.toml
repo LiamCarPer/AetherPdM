@@ -32,6 +32,10 @@ dependencies = [
     # PyTorch: core CV claim, but imported lazily (see aether_pdm.models.torch_anomaly)
     # so the package itself and CI fast tests never pay the import cost.
     "torch>=2.2",
+    # torchvision MUST resolve from the same pytorch-cpu index as torch —
+    # a PyPI CUDA torchvision against a CPU torch raises
+    # "operator torchvision::nms does not exist" at import.
+    "torchvision>=0.17",
     "onnx>=1.22.0",
     "onnxruntime>=1.28.0",
     "skl2onnx>=1.20.0",
@@ -48,6 +52,7 @@ explicit = true
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
 
 [project.optional-dependencies]
 dev = [
@@ -64,6 +69,13 @@ prefect = [
 web = [
     "streamlit>=1.40",
     "plotly>=5.24",
+]
+# Camera-CV track (ADR-004). ultralytics is AGPL-3.0: training toolchain only.
+# Inference ships exported ONNX weights consumed by onnxruntime (MIT).
+vision = [
+    "albumentations>=2.0.8",
+    "opencv-python-headless>=5.0.0.93",
+    "ultralytics>=8.4.126",
 ]
 
 [build-system]

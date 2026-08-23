@@ -1,0 +1,17 @@
+# YOLOv8 surface-defect detector fine-tune config (NEU-DET)
+model: yolov8n.pt
+data: data/raw/neu_det/dataset.yaml
+epochs: 50
+imgsz: 640
+batch: 16
+device: cpu
+augment:
+  hflip: 0.5
+  vflip: 0.5
+  brightness_contrast:
+    p: 0.3
+  gauss_noise:
+    p: 0.2
+eval:
+  conf: 0.25
+  fp_budget_per_image: 0.1
